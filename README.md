@@ -30,10 +30,21 @@ Web-first MVP for pump.no with API-first architecture, ready for future iOS/Andr
 2. Configure environment files.
 3. Start API and web together.
 
+Windows Command Prompt:
+
 ```bash
 npm install
 copy apps\api\.env.example apps\api\.env
 copy apps\web\.env.example apps\web\.env
+npm run dev
+```
+
+macOS/Linux shell:
+
+```bash
+npm install
+cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env
 npm run dev
 ```
 
@@ -63,6 +74,22 @@ run-all.cmd
 - run-api.cmd: starts backend API on port 4000.
 - run-web.cmd: starts Next.js web app on port 3000 and opens browser when the web server is ready.
 - run-all.cmd: starts both web and API together and opens browser when the web server is ready.
+
+## Shell run files (macOS/Linux)
+From repo root in Terminal:
+
+```bash
+chmod +x run-api.sh run-web.sh run-all.sh
+./run-api.sh
+./run-web.sh
+./run-all.sh
+```
+
+- run-api.sh: starts backend API on port 4000.
+- run-web.sh: starts Next.js web app on port 3000 and opens browser when the web server is ready.
+- run-all.sh: starts both web and API together and opens browser when the web server is ready.
+
+If you move the repository between operating systems (for example Windows to Ubuntu/WSL), the shell run files automatically detect incompatible node_modules binaries (such as esbuild) and run a clean npm ci reinstall for the current platform.
 
 ## Current auth note
 - API currently uses x-user-id header as temporary user context for MVP development.

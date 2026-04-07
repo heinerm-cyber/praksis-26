@@ -35,3 +35,5 @@ description: "Use when: implementing pump.no features, changing auth/storage/fal
 - 2026-04-07: Windows Command Prompt run files added: run-api.cmd, run-web.cmd, and run-all.cmd.
 - 2026-04-07: Web UI copy must use Norwegian language with proper characters ae/oe/aa replaced by æ/ø/å.
 - 2026-04-07: run-web.cmd and run-all.cmd now auto-open browser on startup page after web server is reachable.
+- 2026-04-07: Added macOS/Linux shell run files run-api.sh, run-web.sh, and run-all.sh with env bootstrap and browser auto-open for web startup scripts.
+- 2026-04-07: macOS/Linux shell run files now auto-detect cross-platform node_modules binary mismatch (esbuild) and run clean npm ci reinstall before startup.

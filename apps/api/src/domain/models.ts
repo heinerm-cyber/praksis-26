@@ -1,0 +1,43 @@
+export type StorageMode = "cosmos" | "memory";
+
+export type UserScopedEntity = {
+  id: string;
+  userId: string;
+  createdAt: string;
+};
+
+export type Profile = UserScopedEntity & {
+  name: string;
+  email: string;
+};
+
+export type CalorieInput = {
+  currentWeightKg: number;
+  targetWeightKg: number;
+  monthsToGoal: number;
+  activityLevel: "low" | "medium" | "high";
+};
+
+export type CalorieResult = {
+  dailyCalories: number;
+  monthlyChangeKg: number;
+  notes: string[];
+};
+
+export type CalorieSession = UserScopedEntity & {
+  input: CalorieInput;
+  result: CalorieResult;
+};
+
+export type DietSuggestion = UserScopedEntity & {
+  dailyCalories: number;
+  meals: string[];
+  dietName: string;
+};
+
+export type TrainingPlan = UserScopedEntity & {
+  planName: string;
+  trainingTypes: string[];
+  weeklySessions: number;
+  suggestedByCalories: boolean;
+};

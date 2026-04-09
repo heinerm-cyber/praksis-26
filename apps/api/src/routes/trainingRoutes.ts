@@ -5,10 +5,58 @@ import { suggestTrainingByCalories } from "../domain/calorie.js";
 import type { StorageProvider } from "../storage/types.js";
 import type { AuthenticatedRequest } from "../middleware/auth.js";
 
+const weekDays = [
+  "Mandag",
+  "Tirsdag",
+  "Onsdag",
+  "Torsdag",
+  "Fredag",
+  "Lørdag",
+  "Søndag"
+] as const;
+
+const weekDayEnum = z.enum(weekDays);
+
+function normalizeWeekDay(input: string): string {
+  const trimmed = input.trim().toLowerCase();
+  const normalized = trimmed.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+  const map: Record<string, string> = {
+    mandag: "Mandag",
+    tirsdag: "Tirsdag",
+    onsdag: "Onsdag",
+    torsdag: "Torsdag",
+    fredag: "Fredag",
+    lordag: "Lørdag",
+    sondag: "Søndag"
+  };
+
+  return map[normalized] ?? input;
+}
+
+const weekDaySchema = z
+  .string()
+  .min(2)
+  .transform((value) => normalizeWeekDay(value))
+  .pipe(weekDayEnum);
+
+const dayPlanSchema = z.object({
+  day: weekDaySchema,
+  exercises: z.array(z.string().min(2)).max(20),
+  notes: z.string().max(240).optional()
+});
+
 const createPlanSchema = z.object({
   planName: z.string().min(2),
   trainingTypes: z.array(z.string().min(2)).min(1),
-  weeklySessions: z.number().int().min(1).max(14)
+  weeklySessions: z.number().int().min(1).max(14),
+  weekPlan: z
+    .array(dayPlanSchema)
+    .length(7)
+    .refine(
+      (days) => new Set(days.map((item) => item.day)).size === weekDays.length,
+      "Ukeplan må inneholde hver ukedag nøyaktig én gang"
+    )
 });
 
 const suggestionQuery = z.object({

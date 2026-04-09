@@ -37,3 +37,12 @@ description: "Use when: implementing pump.no features, changing auth/storage/fal
 - 2026-04-07: run-web.cmd and run-all.cmd now auto-open browser on startup page after web server is reachable.
 - 2026-04-07: Added macOS/Linux shell run files run-api.sh, run-web.sh, and run-all.sh with env bootstrap and browser auto-open for web startup scripts.
 - 2026-04-07: macOS/Linux shell run files now auto-detect cross-platform node_modules binary mismatch (esbuild) and run clean npm ci reinstall before startup.
+- 2026-04-09: Added VS Code tasks.json with policy-safe startup tasks that run API/web via Program Files node.exe for AppLocker-restricted Windows environments.
+- 2026-04-09: Web now uses login-first flow with Google OAuth and cookie-based sessions; profile management moved to a dedicated profile page while dashboard focuses on calorie/diet/training.
+- 2026-04-09: Added local e-post/passord registrering og login via NextAuth Credentials with in-memory auth-store for development, while Google OAuth remains optional when configured.
+- 2026-04-09: Windows run scripts run-api.cmd and run-web.cmd now start API/web via Program Files node.exe and direct CLI paths to avoid AppLocker blocking npm-based startup.
+- 2026-04-09: Treningsplanleggeren støtter nå manuell ukeplan per dag med klikkbare øvelsesvalg, egendefinerte øvelser og daglige notater i lagrede planer.
+- 2026-04-09: Treningsplanleggeren bruker nå muskelgrupper som valg i stedet for generelle treningstyper, og viser øvelser som passer valgt muskelgruppe.
+- 2026-04-09: Treningsplanleggeren har nå reset-knapp som nullstiller planfelter og ukeplan for rask ny planlegging.
+- 2026-04-09: Reset i treningsplanleggeren nullstiller også ukeplanutkast og rydder treningsplan-visningen i UI for ny planstart.
+- 2026-04-09: Etter reset i treningsplanleggeren erstatter neste lagring planlisten i UI slik at bare den nye planen vises.

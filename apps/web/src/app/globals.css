@@ -35,6 +35,27 @@ a {
   text-decoration: none;
 }
 
+.top-nav {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1rem 1rem 0;
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.top-nav a {
+  padding: 0.45rem 0.7rem;
+  border: 1px solid #2f1a102f;
+  border-radius: 999px;
+  background: #fff8f0cc;
+  font-weight: 700;
+}
+
+.top-nav a:hover {
+  border-color: var(--brand);
+}
+
 main {
   max-width: 1200px;
   margin: 0 auto;
@@ -96,6 +117,35 @@ main {
   font-family: "Bebas Neue", "Franklin Gothic Medium", sans-serif;
   letter-spacing: 0.03em;
   font-size: 1.8rem;
+}
+
+.login-card {
+  margin: 0 auto;
+}
+
+.oauth-button {
+  display: inline-block;
+  margin: 0.4rem 0;
+  border: none;
+  background: linear-gradient(135deg, var(--brand), var(--brand-dark));
+  color: #fff;
+  border-radius: 10px;
+  padding: 0.65rem 0.95rem;
+  font-weight: 700;
+}
+
+.auth-form {
+  margin-top: 0.8rem;
+}
+
+.actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.reset-plan-button {
+  margin-left: auto;
 }
 
 @media (min-width: 920px) {
@@ -183,6 +233,90 @@ button:disabled {
 .list {
   margin: 0.7rem 0 0;
   padding-left: 1.2rem;
+}
+
+.list.compact {
+  margin-top: 0.4rem;
+}
+
+.plans-list {
+  display: grid;
+  gap: 0.75rem;
+  padding-left: 0;
+  list-style: none;
+}
+
+.plan-item {
+  border: 1px solid #2f1a101f;
+  border-radius: 12px;
+  background: #fff9f2;
+  padding: 0.75rem;
+}
+
+.checkbox-inline {
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0;
+}
+
+.checkbox-inline input {
+  width: auto;
+}
+
+.day-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.7rem;
+}
+
+.day-tab {
+  border-radius: 999px;
+  padding: 0.5rem 0.75rem;
+}
+
+.day-tab.active {
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--brand), var(--brand-dark));
+}
+
+.exercise-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 0.7rem;
+}
+
+.exercise-chip {
+  border-radius: 999px;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.9rem;
+}
+
+.exercise-chip.selected {
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--brand), var(--brand-dark));
+}
+
+.week-plan-grid {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.day-preview {
+  border: 1px solid #2f1a101f;
+  border-radius: 10px;
+  background: #fff;
+  padding: 0.55rem;
+}
+
+.strong {
+  font-weight: 700;
 }
 
 .message {

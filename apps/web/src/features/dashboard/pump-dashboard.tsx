@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { requestJson } from "../common/api";
 import type {
   CalorieInput,
   CalorieSession,
   DietSuggestion,
   StorageMode,
+  TrainingDayPlan,
   TrainingPlan
 } from "./types";
 
@@ -16,13 +18,26 @@ type HealthResponse = {
 };
 
 const predefinedTrainingTypes = [
-  "Styrke",
-  "Kondisjon",
-  "Mobilitet",
-  "Intervall",
-  "Core",
-  "Hypertrofi"
+  "Bryst",
+  "Rygg",
+  "Skuldre",
+  "Armer",
+  "Kjerne",
+  "Bein",
+  "Setemuskler"
 ];
+
+const weekDays = ["Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag", "Lørdag", "Søndag"];
+
+const exerciseOptionsByType: Record<string, string[]> = {
+  Bryst: ["Benkpress", "Skrå benkpress", "Push-up", "Flyes", "Dips"],
+  Rygg: ["Markløft", "Sittende roing", "Nedtrekk", "Pull-up", "Face pull"],
+  Skuldre: ["Skulderpress", "Sidehev", "Fronthev", "Omvendt flyes", "Arnold press"],
+  Armer: ["Bicepscurl", "Hammercurl", "Triceps pushdown", "Fransk press", "Chins"],
+  Kjerne: ["Planke", "Sideplanke", "Dead bug", "Hollow hold", "Pallof press"],
+  Bein: ["Knebøy", "Utfall", "Beinpress", "Lårcurl", "Leg extension"],
+  Setemuskler: ["Hip thrust", "Glute bridge", "Rumensk markløft", "Cable kickback", "Step-up"]
+};
 
 const initialCalorieInput: CalorieInput = {
   currentWeightKg: 85,
@@ -31,33 +46,12 @@ const initialCalorieInput: CalorieInput = {
   activityLevel: "medium"
 };
 
-async function requestJson<T>(
-  baseUrl: string,
-  path: string,
-  options: RequestInit,
-  userId?: string
-): Promise<T> {
-  const headers = new Headers(options.headers ?? {});
-  headers.set("Content-Type", "application/json");
+type PumpDashboardProps = {
+  userId: string;
+  displayName: string;
+};
 
-  if (userId) {
-    headers.set("x-user-id", userId);
-  }
-
-  const response = await fetch(`${baseUrl}${path}`, {
-    ...options,
-    headers
-  });
-
-  if (!response.ok) {
-    const payload = await response.json().catch(() => ({ error: "Forespørsel feilet" }));
-    throw new Error(payload.error ?? "Forespørsel feilet");
-  }
-
-  return (await response.json()) as T;
-}
-
-export function PumpDashboard(): JSX.Element {
+export function PumpDashboard({ userId, displayName }: PumpDashboardProps): JSX.Element {
   const apiBaseUrl = useMemo(
     () => process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000",
     []
@@ -66,12 +60,6 @@ export function PumpDashboard(): JSX.Element {
   const [storageMode, setStorageMode] = useState<StorageMode>("memory");
   const [healthError, setHealthError] = useState<string | null>(null);
 
-  const [userId, setUserId] = useState("demo-user-1");
-  const [profileName, setProfileName] = useState("Pump Bruker");
-  const [profileEmail, setProfileEmail] = useState("bruker@pump.no");
-  const [profileMessage, setProfileMessage] = useState<string | null>(null);
-  const [profileError, setProfileError] = useState<string | null>(null);
-
   const [calorieInput, setCalorieInput] = useState<CalorieInput>(initialCalorieInput);
   const [calorieSession, setCalorieSession] = useState<CalorieSession | null>(null);
   const [calorieError, setCalorieError] = useState<string | null>(null);
@@ -79,12 +67,18 @@ export function PumpDashboard(): JSX.Element {
   const [dietSuggestion, setDietSuggestion] = useState<DietSuggestion | null>(null);
   const [dietError, setDietError] = useState<string | null>(null);
 
-  const [selectedTypes, setSelectedTypes] = useState<string[]>(["Styrke"]);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>(["Bryst"]);
   const [planName, setPlanName] = useState("Min ukeplan");
   const [weeklySessions, setWeeklySessions] = useState(4);
   const [trainingPlans, setTrainingPlans] = useState<TrainingPlan[]>([]);
   const [trainingSuggestions, setTrainingSuggestions] = useState<string[]>([]);
   const [trainingError, setTrainingError] = useState<string | null>(null);
+  const [replacePlansOnNextSave, setReplacePlansOnNextSave] = useState(false);
+  const [activeDay, setActiveDay] = useState(weekDays[0]);
+  const [customExercise, setCustomExercise] = useState("");
+  const [weekPlan, setWeekPlan] = useState<TrainingDayPlan[]>(
+    weekDays.map((day) => ({ day, exercises: [], notes: "" }))
+  );
 
   async function loadHealth(): Promise<void> {
     try {
@@ -108,26 +102,31 @@ export function PumpDashboard(): JSX.Element {
     return () => clearInterval(id);
   }, [apiBaseUrl]);
 
-  async function saveProfile(): Promise<void> {
-    try {
-      setProfileError(null);
-      setProfileMessage(null);
+  useEffect(() => {
+    void loadTrainingPlans();
+  }, [apiBaseUrl, userId]);
 
-      const payload = {
-        name: profileName,
-        email: profileEmail
-      };
+  const availableExercises = useMemo(() => {
+    const sourceTypes = selectedTypes.length > 0 ? selectedTypes : predefinedTrainingTypes;
+    return [...new Set(sourceTypes.flatMap((type) => exerciseOptionsByType[type] ?? []))];
+  }, [selectedTypes]);
 
-      await requestJson<{ profile: unknown }>(apiBaseUrl, "/api/profile/me", {
-        method: "POST",
-        body: JSON.stringify(payload)
-      }, userId);
+  const activeDayPlan = useMemo(
+    () => weekPlan.find((day) => day.day === activeDay) ?? weekPlan[0],
+    [activeDay, weekPlan]
+  );
 
-      setProfileMessage("Profil lagret");
-    } catch (error) {
-      setProfileError(error instanceof Error ? error.message : "Kunne ikke lagre profil");
+  const exercisesForActiveDay = useMemo(() => {
+    if (!activeDayPlan) {
+      return availableExercises;
     }
-  }
+    return [...new Set([...availableExercises, ...activeDayPlan.exercises])];
+  }, [activeDayPlan, availableExercises]);
+
+  const plannedSessionCount = useMemo(
+    () => weekPlan.filter((day) => day.exercises.length > 0).length,
+    [weekPlan]
+  );
 
   async function runCalorieCalculation(): Promise<void> {
     try {
@@ -167,7 +166,18 @@ export function PumpDashboard(): JSX.Element {
   async function createTrainingPlan(): Promise<void> {
     try {
       setTrainingError(null);
-      await requestJson<{ plan: TrainingPlan }>(
+
+      const normalizedWeekPlan = weekPlan.map((day) => ({
+        day: day.day,
+        exercises: day.exercises,
+        notes: day.notes?.trim() ? day.notes.trim() : undefined
+      }));
+
+      if (normalizedWeekPlan.every((day) => day.exercises.length === 0)) {
+        throw new Error("Velg minst én øvelse i ukeplanen før du lagrer");
+      }
+
+      const createResponse = await requestJson<{ plan: TrainingPlan }>(
         apiBaseUrl,
         "/api/training/plans",
         {
@@ -175,12 +185,26 @@ export function PumpDashboard(): JSX.Element {
           body: JSON.stringify({
             planName,
             trainingTypes: selectedTypes,
-            weeklySessions
+            weeklySessions,
+            weekPlan: normalizedWeekPlan
           })
         },
         userId
       );
 
+      if (replacePlansOnNextSave) {
+        setTrainingPlans([createResponse.plan]);
+        setReplacePlansOnNextSave(false);
+      } else {
+        await loadTrainingPlans();
+      }
+    } catch (error) {
+      setTrainingError(error instanceof Error ? error.message : "Kunne ikke lagre treningsplan");
+    }
+  }
+
+  async function loadTrainingPlans(): Promise<void> {
+    try {
       const listResponse = await requestJson<{ plans: TrainingPlan[] }>(
         apiBaseUrl,
         "/api/training/plans",
@@ -188,8 +212,8 @@ export function PumpDashboard(): JSX.Element {
         userId
       );
       setTrainingPlans(listResponse.plans);
-    } catch (error) {
-      setTrainingError(error instanceof Error ? error.message : "Kunne ikke lagre treningsplan");
+    } catch {
+      setTrainingPlans([]);
     }
   }
 
@@ -203,6 +227,57 @@ export function PumpDashboard(): JSX.Element {
     });
   }
 
+  function updateDayPlan(day: string, updater: (current: TrainingDayPlan) => TrainingDayPlan): void {
+    setWeekPlan((current) => current.map((item) => (item.day === day ? updater(item) : item)));
+  }
+
+  function toggleExercise(day: string, exercise: string): void {
+    updateDayPlan(day, (current) => {
+      if (current.exercises.includes(exercise)) {
+        return {
+          ...current,
+          exercises: current.exercises.filter((item) => item !== exercise)
+        };
+      }
+      return {
+        ...current,
+        exercises: [...current.exercises, exercise]
+      };
+    });
+  }
+
+  function addCustomExercise(day: string): void {
+    const trimmed = customExercise.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    updateDayPlan(day, (current) => {
+      if (current.exercises.includes(trimmed)) {
+        return current;
+      }
+      return {
+        ...current,
+        exercises: [...current.exercises, trimmed]
+      };
+    });
+
+    setCustomExercise("");
+  }
+
+  function resetTrainingPlan(): void {
+    setPlanName("Min ukeplan");
+    setWeeklySessions(4);
+    setSelectedTypes(["Bryst"]);
+    setActiveDay(weekDays[0]);
+    setCustomExercise("");
+    setTrainingError(null);
+    setTrainingSuggestions([]);
+    setTrainingPlans([]);
+    setReplacePlansOnNextSave(true);
+    setWeekPlan(weekDays.map((day) => ({ day, exercises: [], notes: "" })));
+  }
+
   return (
     <main>
       <section className="hero">
@@ -211,6 +286,7 @@ export function PumpDashboard(): JSX.Element {
           Nettbasert MVP for profil, kalorikalkulering, kostholdsråd og treningsplaner, bygget med API-først
           arkitektur.
         </p>
+        <p className="tiny">Innlogget som: {displayName}</p>
         <span className={`status ${storageMode === "memory" ? "memory" : ""}`}>
           Lagringsmodus: {storageMode}
         </span>
@@ -223,32 +299,7 @@ export function PumpDashboard(): JSX.Element {
       </section>
 
       <section className="grid">
-        <article className="card span-4">
-          <h2>Profil</h2>
-          <div className="row">
-            <label>
-              Bruker-ID
-              <input value={userId} onChange={(event) => setUserId(event.target.value)} />
-            </label>
-            <label>
-              Navn
-              <input value={profileName} onChange={(event) => setProfileName(event.target.value)} />
-            </label>
-            <label>
-              E-post
-              <input
-                type="email"
-                value={profileEmail}
-                onChange={(event) => setProfileEmail(event.target.value)}
-              />
-            </label>
-          </div>
-          <button onClick={() => void saveProfile()}>Lagre profil</button>
-          {profileMessage ? <p className="message">{profileMessage}</p> : null}
-          {profileError ? <p className="message error">{profileError}</p> : null}
-        </article>
-
-        <article className="card span-8">
+        <article className="card span-12">
           <h2>Kalorikalkulering</h2>
           <div className="row three">
             <label>
@@ -365,19 +416,93 @@ export function PumpDashboard(): JSX.Element {
               onChange={(event) => setWeeklySessions(Number(event.target.value))}
             />
           </label>
+          <p className="tiny">Planlagte dager med økter: {plannedSessionCount} av 7</p>
+
+          <p className="tiny">Velg muskelgrupper for planen:</p>
           <div className="row two">
             {predefinedTrainingTypes.map((type) => (
-              <label key={type}>
-                <input
-                  type="checkbox"
-                  checked={selectedTypes.includes(type)}
-                  onChange={() => toggleTrainingType(type)}
-                />
+              <label key={type} className="checkbox-inline">
+                <input type="checkbox" checked={selectedTypes.includes(type)} onChange={() => toggleTrainingType(type)} />
                 {type}
               </label>
             ))}
           </div>
-          <button onClick={() => void createTrainingPlan()}>Lagre egen plan</button>
+
+          <p className="tiny">Bygg ukeplan manuelt - velg dag og klikk øvelser for muskelgruppen:</p>
+          <div className="day-tabs" role="tablist" aria-label="Velg dag i ukeplan">
+            {weekDays.map((day) => (
+              <button
+                key={day}
+                type="button"
+                className={`secondary day-tab ${activeDay === day ? "active" : ""}`}
+                onClick={() => setActiveDay(day)}
+              >
+                {day}
+              </button>
+            ))}
+          </div>
+
+          {activeDayPlan ? (
+            <div className="message">
+              <p className="tiny strong">{activeDayPlan.day}</p>
+              <div className="exercise-grid">
+                {exercisesForActiveDay.map((exercise) => {
+                  const selected = activeDayPlan.exercises.includes(exercise);
+                  return (
+                    <button
+                      key={exercise}
+                      type="button"
+                      className={`secondary exercise-chip ${selected ? "selected" : ""}`}
+                      onClick={() => toggleExercise(activeDayPlan.day, exercise)}
+                    >
+                      {exercise}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="row two">
+                <label>
+                  Legg til egen øvelse
+                  <input
+                    value={customExercise}
+                    onChange={(event) => setCustomExercise(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        addCustomExercise(activeDayPlan.day);
+                      }
+                    }}
+                    placeholder="For eksempel: Hip thrust"
+                  />
+                </label>
+                <button type="button" className="secondary" onClick={() => addCustomExercise(activeDayPlan.day)}>
+                  Legg til øvelse
+                </button>
+              </div>
+
+              <label>
+                Notater for {activeDayPlan.day}
+                <textarea
+                  value={activeDayPlan.notes ?? ""}
+                  onChange={(event) =>
+                    updateDayPlan(activeDayPlan.day, (current) => ({
+                      ...current,
+                      notes: event.target.value
+                    }))
+                  }
+                  placeholder="Intensitet, varighet eller fokus"
+                />
+              </label>
+            </div>
+          ) : null}
+
+          <div className="actions">
+            <button onClick={() => void createTrainingPlan()}>Lagre egen plan</button>
+            <button type="button" className="reset-plan-button" onClick={resetTrainingPlan}>
+              reset plan
+            </button>
+          </div>
           {trainingError ? <p className="message error">{trainingError}</p> : null}
 
           {trainingSuggestions.length > 0 ? (
@@ -394,10 +519,31 @@ export function PumpDashboard(): JSX.Element {
           {trainingPlans.length > 0 ? (
             <>
               <p className="tiny">Dine lagrede planer:</p>
-              <ul className="list">
+              <ul className="list plans-list">
                 {trainingPlans.map((plan) => (
-                  <li key={plan.id}>
-                    {plan.planName} - {plan.weeklySessions} økter/uke ({plan.trainingTypes.join(", ")})
+                  <li key={plan.id} className="plan-item">
+                    <p>
+                      <strong>{plan.planName}</strong> - {plan.weeklySessions} økter/uke ({plan.trainingTypes.join(", ")})
+                    </p>
+                    {plan.weekPlan?.length ? (
+                      <div className="week-plan-grid">
+                        {plan.weekPlan.map((day) => (
+                          <div key={`${plan.id}-${day.day}`} className="day-preview">
+                            <p className="tiny strong">{day.day}</p>
+                            {day.exercises.length > 0 ? (
+                              <ul className="list compact">
+                                {day.exercises.map((exercise) => (
+                                  <li key={`${plan.id}-${day.day}-${exercise}`}>{exercise}</li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="tiny">Hvile</p>
+                            )}
+                            {day.notes ? <p className="tiny">Notat: {day.notes}</p> : null}
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
                   </li>
                 ))}
               </ul>

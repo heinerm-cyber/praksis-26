@@ -1,0 +1,55 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "pump: api (policy-safe)",
+      "type": "shell",
+      "command": "${env:ProgramFiles}\\nodejs\\node.exe",
+      "args": [
+        "${workspaceFolder}\\node_modules\\tsx\\dist\\cli.mjs",
+        "watch",
+        "${workspaceFolder}\\apps\\api\\src\\index.ts"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}\\apps\\api"
+      },
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "pump"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "pump: web (policy-safe)",
+      "type": "shell",
+      "command": "${env:ProgramFiles}\\nodejs\\node.exe",
+      "args": [
+        "${workspaceFolder}\\node_modules\\next\\dist\\bin\\next",
+        "dev",
+        "-p",
+        "3000"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}\\apps\\web"
+      },
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "pump"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "pump: all (policy-safe)",
+      "dependsOrder": "parallel",
+      "dependsOn": [
+        "pump: api (policy-safe)",
+        "pump: web (policy-safe)"
+      ],
+      "problemMatcher": []
+    }
+  ]
+}

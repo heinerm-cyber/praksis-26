@@ -35,6 +35,15 @@ export type DietSuggestion = UserScopedEntity & {
   dietName: string;
 };
 
+export type DietPlan = UserScopedEntity & {
+  planName: string;
+  meals: string[];
+  sourceType: "manual" | "from-suggestion";
+  dailyCalories?: number;
+  dietName?: string;
+  notes?: string;
+};
+
 export type TrainingDayPlan = {
   day: string;
   exercises: string[];

@@ -11,6 +11,7 @@ const envSchema = z.object({
   COSMOS_PROFILE_CONTAINER: z.string().default("profiles"),
   COSMOS_CALORIE_CONTAINER: z.string().default("calories"),
   COSMOS_DIET_CONTAINER: z.string().default("diets"),
+  COSMOS_DIET_PLAN_CONTAINER: z.string().default("dietPlans"),
   COSMOS_TRAINING_CONTAINER: z.string().default("trainingPlans")
 });
 

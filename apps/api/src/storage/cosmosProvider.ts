@@ -1,6 +1,7 @@
 import { CosmosClient } from "@azure/cosmos";
 import type {
   CalorieSession,
+  DietPlan,
   DietSuggestion,
   Profile,
   TrainingPlan
@@ -8,6 +9,7 @@ import type {
 import type { AppEnv } from "../config/env.js";
 import type {
   CalorieRepository,
+  DietPlanRepository,
   DietRepository,
   ProfileRepository,
   StorageProvider,
@@ -19,6 +21,7 @@ type ContainerConfig = {
   profiles: string;
   calories: string;
   diets: string;
+  dietPlans: string;
   training: string;
 };
 
@@ -82,6 +85,26 @@ class CosmosDietRepository implements DietRepository {
   }
 }
 
+class CosmosDietPlanRepository implements DietPlanRepository {
+  constructor(private readonly client: CosmosClient, private readonly cfg: ContainerConfig) {}
+
+  async create(plan: DietPlan): Promise<DietPlan> {
+    const container = this.client.database(this.cfg.database).container(this.cfg.dietPlans);
+    await container.items.upsert(plan);
+    return plan;
+  }
+
+  async listByUserId(userId: string): Promise<DietPlan[]> {
+    const container = this.client.database(this.cfg.database).container(this.cfg.dietPlans);
+    const query = {
+      query: "SELECT * FROM c WHERE c.userId = @userId ORDER BY c.createdAt DESC",
+      parameters: [{ name: "@userId", value: userId }]
+    };
+    const { resources } = await container.items.query<DietPlan>(query).fetchAll();
+    return resources;
+  }
+}
+
 class CosmosTrainingRepository implements TrainingRepository {
   constructor(private readonly client: CosmosClient, private readonly cfg: ContainerConfig) {}
 
@@ -114,6 +137,7 @@ export async function tryCreateCosmosProvider(env: AppEnv): Promise<StorageProvi
     profiles: env.COSMOS_PROFILE_CONTAINER,
     calories: env.COSMOS_CALORIE_CONTAINER,
     diets: env.COSMOS_DIET_CONTAINER,
+    dietPlans: env.COSMOS_DIET_PLAN_CONTAINER,
     training: env.COSMOS_TRAINING_CONTAINER
   };
 
@@ -132,6 +156,10 @@ export async function tryCreateCosmosProvider(env: AppEnv): Promise<StorageProvi
       partitionKey: { paths: ["/userId"] }
     });
     await database.containers.createIfNotExists({
+      id: cfg.dietPlans,
+      partitionKey: { paths: ["/userId"] }
+    });
+    await database.containers.createIfNotExists({
       id: cfg.training,
       partitionKey: { paths: ["/userId"] }
     });
@@ -144,6 +172,7 @@ export async function tryCreateCosmosProvider(env: AppEnv): Promise<StorageProvi
     profile: new CosmosProfileRepository(client, cfg),
     calories: new CosmosCalorieRepository(client, cfg),
     diets: new CosmosDietRepository(client, cfg),
+    dietPlans: new CosmosDietPlanRepository(client, cfg),
     training: new CosmosTrainingRepository(client, cfg)
   };
 }

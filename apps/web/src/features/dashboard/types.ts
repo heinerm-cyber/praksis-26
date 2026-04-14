@@ -38,6 +38,18 @@ export type DietSuggestion = {
   dietName: string;
 };
 
+export type DietPlan = {
+  id: string;
+  userId: string;
+  createdAt: string;
+  planName: string;
+  meals: string[];
+  sourceType: "manual" | "from-suggestion";
+  dailyCalories?: number;
+  dietName?: string;
+  notes?: string;
+};
+
 export type TrainingDayPlan = {
   day: string;
   exercises: string[];

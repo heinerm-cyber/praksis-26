@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { requestJson } from "../common/api";
+import { calculateGamification } from "../common/gamification";
 import type {
   CalorieInput,
   CalorieSession,
+  DietPlan,
   DietSuggestion,
   StorageMode,
   TrainingDayPlan,
@@ -46,16 +48,100 @@ const initialCalorieInput: CalorieInput = {
   activityLevel: "medium"
 };
 
-type PumpDashboardProps = {
-  userId: string;
-  displayName: string;
+type TrainingProgramTemplate = {
+  id: string;
+  name: string;
+  description: string;
+  planName: string;
+  trainingTypes: string[];
+  weeklySessions: number;
+  weekPlan: TrainingDayPlan[];
 };
 
-export function PumpDashboard({ userId, displayName }: PumpDashboardProps): JSX.Element {
+const trainingProgramTemplates: TrainingProgramTemplate[] = [
+  {
+    id: "nybegynner",
+    name: "Nybegynner 3-dager",
+    description: "En enkel fullkroppsplan med god balanse og hvile mellom økter.",
+    planName: "Nybegynner 3-dager",
+    trainingTypes: ["Bryst", "Rygg", "Bein", "Kjerne"],
+    weeklySessions: 3,
+    weekPlan: [
+      { day: "Mandag", exercises: ["Knebøy", "Benkpress", "Planke"], notes: "Helkropp, rolig start" },
+      { day: "Tirsdag", exercises: [], notes: "Hvile eller lett mobilitet" },
+      { day: "Onsdag", exercises: ["Markløft", "Nedtrekk", "Sideplanke"], notes: "Fokus på teknikk" },
+      { day: "Torsdag", exercises: [], notes: "Hvile" },
+      { day: "Fredag", exercises: ["Utfall", "Skulderpress", "Dead bug"], notes: "Jevn kontroll" },
+      { day: "Lørdag", exercises: [], notes: "Aktiv hvile" },
+      { day: "Søndag", exercises: [], notes: "Hvile" }
+    ]
+  },
+  {
+    id: "styrke",
+    name: "Styrke 4-dager",
+    description: "Mer belastning på baseøvelser med over/underkropp-splitt.",
+    planName: "Styrke 4-dager",
+    trainingTypes: ["Bryst", "Rygg", "Bein", "Skuldre", "Kjerne"],
+    weeklySessions: 4,
+    weekPlan: [
+      { day: "Mandag", exercises: ["Benkpress", "Sittende roing", "Face pull"], notes: "Overkropp tung" },
+      { day: "Tirsdag", exercises: ["Knebøy", "Beinpress", "Leg extension"], notes: "Underkropp tung" },
+      { day: "Onsdag", exercises: [], notes: "Hvile" },
+      { day: "Torsdag", exercises: ["Skulderpress", "Pull-up", "Pallof press"], notes: "Overkropp volum" },
+      { day: "Fredag", exercises: ["Markløft", "Utfall", "Lårcurl"], notes: "Underkropp volum" },
+      { day: "Lørdag", exercises: [], notes: "Valgfri mobilitet" },
+      { day: "Søndag", exercises: [], notes: "Hvile" }
+    ]
+  },
+  {
+    id: "hypertrofi",
+    name: "Hypertrofi 5-dager",
+    description: "Høyere treningsvolum for muskelvekst med målrettede økter.",
+    planName: "Hypertrofi 5-dager",
+    trainingTypes: ["Bryst", "Rygg", "Skuldre", "Armer", "Bein", "Setemuskler", "Kjerne"],
+    weeklySessions: 5,
+    weekPlan: [
+      { day: "Mandag", exercises: ["Skrå benkpress", "Flyes", "Triceps pushdown"], notes: "Push-fokus" },
+      { day: "Tirsdag", exercises: ["Nedtrekk", "Sittende roing", "Hammercurl"], notes: "Pull-fokus" },
+      { day: "Onsdag", exercises: ["Knebøy", "Hip thrust", "Lårcurl"], notes: "Leg day" },
+      { day: "Torsdag", exercises: ["Skulderpress", "Sidehev", "Omvendt flyes"], notes: "Skuldre" },
+      { day: "Fredag", exercises: ["Glute bridge", "Utfall", "Planke"], notes: "Sete og kjerne" },
+      { day: "Lørdag", exercises: [], notes: "Aktiv restitusjon" },
+      { day: "Søndag", exercises: [], notes: "Hvile" }
+    ]
+  },
+  {
+    id: "fettforbrenning",
+    name: "Fettforbrenning 4-dager",
+    description: "Kombinerer styrke og høy puls for effektiv energibruk.",
+    planName: "Fettforbrenning 4-dager",
+    trainingTypes: ["Bein", "Bryst", "Rygg", "Kjerne", "Setemuskler"],
+    weeklySessions: 4,
+    weekPlan: [
+      { day: "Mandag", exercises: ["Utfall", "Push-up", "Planke"], notes: "Sirkel 3-4 runder" },
+      { day: "Tirsdag", exercises: ["Markløft", "Nedtrekk", "Dead bug"], notes: "Moderate pauser" },
+      { day: "Onsdag", exercises: [], notes: "Gåtur 30-45 min" },
+      { day: "Torsdag", exercises: ["Knebøy", "Skulderpress", "Sideplanke"], notes: "Helkropp" },
+      { day: "Fredag", exercises: ["Hip thrust", "Sittende roing", "Pallof press"], notes: "Tempo-kontroll" },
+      { day: "Lørdag", exercises: [], notes: "Valgfri lett aktivitet" },
+      { day: "Søndag", exercises: [], notes: "Hvile" }
+    ]
+  }
+];
+
+type PumpDashboardProps = {
+  userId?: string;
+  displayName?: string;
+  view?: "all" | "calories" | "diet" | "nutrition" | "training";
+};
+
+export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboardProps): JSX.Element {
   const apiBaseUrl = useMemo(
     () => process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000",
     []
   );
+  const effectiveUserId = userId?.trim() || "demo-user";
+  const effectiveDisplayName = displayName?.trim() || "Demo bruker";
 
   const [storageMode, setStorageMode] = useState<StorageMode>("memory");
   const [healthError, setHealthError] = useState<string | null>(null);
@@ -63,9 +149,19 @@ export function PumpDashboard({ userId, displayName }: PumpDashboardProps): JSX.
   const [calorieInput, setCalorieInput] = useState<CalorieInput>(initialCalorieInput);
   const [calorieSession, setCalorieSession] = useState<CalorieSession | null>(null);
   const [calorieError, setCalorieError] = useState<string | null>(null);
+  const [calorieSuccess, setCalorieSuccess] = useState<string | null>(null);
+  const [isCalculating, setIsCalculating] = useState(false);
 
   const [dietSuggestion, setDietSuggestion] = useState<DietSuggestion | null>(null);
   const [dietError, setDietError] = useState<string | null>(null);
+  const [dietPlanSuccess, setDietPlanSuccess] = useState<string | null>(null);
+  const [isSavingDietPlan, setIsSavingDietPlan] = useState(false);
+  const [dietPlanName, setDietPlanName] = useState("Min kostholdplan");
+  const [dietPlanNotes, setDietPlanNotes] = useState("");
+  const [manualMealsText, setManualMealsText] = useState("");
+  const [mealCount, setMealCount] = useState(4);
+  const [dietPlans, setDietPlans] = useState<DietPlan[]>([]);
+  const [calorieHistory, setCalorieHistory] = useState<CalorieSession[]>([]);
 
   const [selectedTypes, setSelectedTypes] = useState<string[]>(["Bryst"]);
   const [planName, setPlanName] = useState("Min ukeplan");
@@ -73,7 +169,10 @@ export function PumpDashboard({ userId, displayName }: PumpDashboardProps): JSX.
   const [trainingPlans, setTrainingPlans] = useState<TrainingPlan[]>([]);
   const [trainingSuggestions, setTrainingSuggestions] = useState<string[]>([]);
   const [trainingError, setTrainingError] = useState<string | null>(null);
+  const [trainingSuccess, setTrainingSuccess] = useState<string | null>(null);
+  const [isSavingPlan, setIsSavingPlan] = useState(false);
   const [replacePlansOnNextSave, setReplacePlansOnNextSave] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [activeDay, setActiveDay] = useState(weekDays[0]);
   const [customExercise, setCustomExercise] = useState("");
   const [weekPlan, setWeekPlan] = useState<TrainingDayPlan[]>(
@@ -104,7 +203,12 @@ export function PumpDashboard({ userId, displayName }: PumpDashboardProps): JSX.
 
   useEffect(() => {
     void loadTrainingPlans();
-  }, [apiBaseUrl, userId]);
+  }, [apiBaseUrl, effectiveUserId]);
+
+  useEffect(() => {
+    void loadDietPlans();
+    void loadCalorieHistory();
+  }, [apiBaseUrl, effectiveUserId]);
 
   const availableExercises = useMemo(() => {
     const sourceTypes = selectedTypes.length > 0 ? selectedTypes : predefinedTrainingTypes;
@@ -127,10 +231,85 @@ export function PumpDashboard({ userId, displayName }: PumpDashboardProps): JSX.
     () => weekPlan.filter((day) => day.exercises.length > 0).length,
     [weekPlan]
   );
+  const gamification = useMemo(
+    () =>
+      calculateGamification({
+        trainingPlans,
+        dietPlans,
+        calorieSessions: calorieHistory
+      }),
+    [trainingPlans, dietPlans, calorieHistory]
+  );
+  const showCalories = view === "all" || view === "calories" || view === "nutrition";
+  const showDiet = view === "all" || view === "diet" || view === "nutrition";
+  const showTraining = view === "all" || view === "training";
+
+  const nutritionTargets = useMemo(() => {
+    if (!calorieSession) {
+      return null;
+    }
+
+    const calories = calorieSession.result.dailyCalories;
+    const proteinGrams = Math.round(Math.max(1.6 * calorieInput.targetWeightKg, 1.3 * calorieInput.currentWeightKg));
+    const fatGrams = Math.round((calories * 0.28) / 9);
+    const carbGrams = Math.max(0, Math.round((calories - proteinGrams * 4 - fatGrams * 9) / 4));
+    const waterLiters = Math.max(2, Number((calorieInput.currentWeightKg * 0.035).toFixed(1)));
+    const fiberGrams = Math.round((calories / 1000) * 14);
+
+    return {
+      calories,
+      proteinGrams,
+      fatGrams,
+      carbGrams,
+      waterLiters,
+      fiberGrams
+    };
+  }, [calorieInput.currentWeightKg, calorieInput.targetWeightKg, calorieSession]);
+
+  const caloriesPerMeal = useMemo(() => {
+    if (!nutritionTargets) {
+      return null;
+    }
+
+    return Math.round(nutritionTargets.calories / mealCount);
+  }, [mealCount, nutritionTargets]);
+
+  const grocerySuggestions = useMemo(() => {
+    if (!dietSuggestion) {
+      return [];
+    }
+
+    const text = dietSuggestion.meals.join(" ").toLowerCase();
+    const suggestions = new Set<string>();
+    const mappings: Array<{ key: string; items: string[] }> = [
+      { key: "havre", items: ["Havregryn", "Banan", "Kanel"] },
+      { key: "kylling", items: ["Kyllingfilet", "Ris", "Brokkoli"] },
+      { key: "laks", items: ["Laks", "Potet", "Grønne grønnsaker"] },
+      { key: "egg", items: ["Egg", "Fullkornsbrød", "Avokado"] },
+      { key: "yoghurt", items: ["Gresk yoghurt", "Bær", "Nøtter"] },
+      { key: "smoothie", items: ["Frosne bær", "Banan", "Proteinpulver"] }
+    ];
+
+    mappings.forEach((mapping) => {
+      if (text.includes(mapping.key)) {
+        mapping.items.forEach((item) => suggestions.add(item));
+      }
+    });
+
+    if (suggestions.size === 0) {
+      ["Proteinkilde", "Karbohydratkilde", "Grønnsaker", "Frukt", "Sunt fett"].forEach((item) =>
+        suggestions.add(item)
+      );
+    }
+
+    return [...suggestions];
+  }, [dietSuggestion]);
 
   async function runCalorieCalculation(): Promise<void> {
     try {
+      setIsCalculating(true);
       setCalorieError(null);
+      setCalorieSuccess(null);
       const response = await requestJson<{ session: CalorieSession }>(
         apiBaseUrl,
         "/api/calories/calculate",
@@ -138,7 +317,7 @@ export function PumpDashboard({ userId, displayName }: PumpDashboardProps): JSX.
           method: "POST",
           body: JSON.stringify(calorieInput)
         },
-        userId
+        effectiveUserId
       );
       setCalorieSession(response.session);
 
@@ -146,7 +325,7 @@ export function PumpDashboard({ userId, displayName }: PumpDashboardProps): JSX.
         apiBaseUrl,
         `/api/diets/suggestions?dailyCalories=${response.session.result.dailyCalories}`,
         { method: "GET" },
-        userId
+        effectiveUserId
       );
       setDietSuggestion(dietResponse.suggestion);
       setDietError(null);
@@ -155,17 +334,23 @@ export function PumpDashboard({ userId, displayName }: PumpDashboardProps): JSX.
         apiBaseUrl,
         `/api/training/suggestions?dailyCalories=${response.session.result.dailyCalories}`,
         { method: "GET" },
-        userId
+        effectiveUserId
       );
       setTrainingSuggestions(trainingResponse.suggestions);
+      setCalorieSuccess("Kalori- og kostholdsgrunnlag er oppdatert.");
+      setCalorieHistory((current) => [response.session, ...current]);
     } catch (error) {
       setCalorieError(error instanceof Error ? error.message : "Kalkulering feilet");
+    } finally {
+      setIsCalculating(false);
     }
   }
 
   async function createTrainingPlan(): Promise<void> {
     try {
+      setIsSavingPlan(true);
       setTrainingError(null);
+      setTrainingSuccess(null);
 
       const normalizedWeekPlan = weekPlan.map((day) => ({
         day: day.day,
@@ -189,7 +374,7 @@ export function PumpDashboard({ userId, displayName }: PumpDashboardProps): JSX.
             weekPlan: normalizedWeekPlan
           })
         },
-        userId
+        effectiveUserId
       );
 
       if (replacePlansOnNextSave) {
@@ -198,8 +383,90 @@ export function PumpDashboard({ userId, displayName }: PumpDashboardProps): JSX.
       } else {
         await loadTrainingPlans();
       }
+      setTrainingSuccess("Planen ble lagret.");
     } catch (error) {
       setTrainingError(error instanceof Error ? error.message : "Kunne ikke lagre treningsplan");
+    } finally {
+      setIsSavingPlan(false);
+    }
+  }
+
+  async function saveDietPlanFromSuggestion(): Promise<void> {
+    try {
+      if (!dietSuggestion) {
+        throw new Error("Kjør kalorikalkulering og hent forslag først");
+      }
+
+      setIsSavingDietPlan(true);
+      setDietError(null);
+      setDietPlanSuccess(null);
+
+      const response = await requestJson<{ plan: DietPlan }>(
+        apiBaseUrl,
+        "/api/diets/plans",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            sourceType: "from-suggestion",
+            dailyCalories: dietSuggestion.dailyCalories,
+            planName: dietPlanName.trim() || dietSuggestion.dietName,
+            notes: dietPlanNotes.trim() || undefined
+          })
+        },
+        effectiveUserId
+      );
+
+      setDietPlanSuccess(`Lagret kostholdplan: ${response.plan.planName}`);
+      setDietPlans((current) => [response.plan, ...current]);
+    } catch (error) {
+      setDietError(error instanceof Error ? error.message : "Kunne ikke lagre kostholdplan");
+    } finally {
+      setIsSavingDietPlan(false);
+    }
+  }
+
+  async function saveManualDietPlan(): Promise<void> {
+    try {
+      const meals = manualMealsText
+        .split(/\r?\n/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+
+      if (!dietPlanName.trim()) {
+        throw new Error("Skriv inn et navn på kostholdplanen");
+      }
+
+      if (meals.length === 0) {
+        throw new Error("Legg inn minst ett måltid i den manuelle planen");
+      }
+
+      setIsSavingDietPlan(true);
+      setDietError(null);
+      setDietPlanSuccess(null);
+
+      const response = await requestJson<{ plan: DietPlan }>(
+        apiBaseUrl,
+        "/api/diets/plans",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            sourceType: "manual",
+            planName: dietPlanName.trim(),
+            meals,
+            dailyCalories: nutritionTargets?.calories,
+            notes: dietPlanNotes.trim() || undefined
+          })
+        },
+        effectiveUserId
+      );
+
+      setDietPlanSuccess(`Lagret manuell kostholdplan: ${response.plan.planName}`);
+      setDietPlans((current) => [response.plan, ...current]);
+      setManualMealsText("");
+    } catch (error) {
+      setDietError(error instanceof Error ? error.message : "Kunne ikke lagre kostholdplan");
+    } finally {
+      setIsSavingDietPlan(false);
     }
   }
 
@@ -209,11 +476,39 @@ export function PumpDashboard({ userId, displayName }: PumpDashboardProps): JSX.
         apiBaseUrl,
         "/api/training/plans",
         { method: "GET" },
-        userId
+        effectiveUserId
       );
       setTrainingPlans(listResponse.plans);
     } catch {
       setTrainingPlans([]);
+    }
+  }
+
+  async function loadDietPlans(): Promise<void> {
+    try {
+      const listResponse = await requestJson<{ plans: DietPlan[] }>(
+        apiBaseUrl,
+        "/api/diets/plans",
+        { method: "GET" },
+        effectiveUserId
+      );
+      setDietPlans(listResponse.plans);
+    } catch {
+      setDietPlans([]);
+    }
+  }
+
+  async function loadCalorieHistory(): Promise<void> {
+    try {
+      const listResponse = await requestJson<{ sessions: CalorieSession[] }>(
+        apiBaseUrl,
+        "/api/calories/history",
+        { method: "GET" },
+        effectiveUserId
+      );
+      setCalorieHistory(listResponse.sessions);
+    } catch {
+      setCalorieHistory([]);
     }
   }
 
@@ -265,13 +560,26 @@ export function PumpDashboard({ userId, displayName }: PumpDashboardProps): JSX.
     setCustomExercise("");
   }
 
+  function applyTrainingProgram(template: TrainingProgramTemplate): void {
+    setSelectedTemplateId(template.id);
+    setPlanName(template.planName);
+    setWeeklySessions(template.weeklySessions);
+    setSelectedTypes(template.trainingTypes);
+    setActiveDay(weekDays[0]);
+    setCustomExercise("");
+    setTrainingError(null);
+    setWeekPlan(template.weekPlan.map((day) => ({ ...day })));
+  }
+
   function resetTrainingPlan(): void {
     setPlanName("Min ukeplan");
     setWeeklySessions(4);
     setSelectedTypes(["Bryst"]);
+    setSelectedTemplateId(null);
     setActiveDay(weekDays[0]);
     setCustomExercise("");
     setTrainingError(null);
+    setTrainingSuccess(null);
     setTrainingSuggestions([]);
     setTrainingPlans([]);
     setReplacePlansOnNextSave(true);
@@ -281,12 +589,17 @@ export function PumpDashboard({ userId, displayName }: PumpDashboardProps): JSX.
   return (
     <main>
       <section className="hero">
-        <h1>pump.no</h1>
+        <h1 className="brand-mark" aria-label="pump.no">
+          <span className="brand-pill">Tren smartere</span>
+          <span className="brand-word">pump</span>
+          <span className="brand-dot">.</span>
+          <span className="brand-word">no</span>
+        </h1>
         <p>
           Nettbasert MVP for profil, kalorikalkulering, kostholdsråd og treningsplaner, bygget med API-først
           arkitektur.
         </p>
-        <p className="tiny">Innlogget som: {displayName}</p>
+        <p className="tiny">Innlogget som: {effectiveDisplayName}</p>
         <span className={`status ${storageMode === "memory" ? "memory" : ""}`}>
           Lagringsmodus: {storageMode}
         </span>
@@ -296,9 +609,50 @@ export function PumpDashboard({ userId, displayName }: PumpDashboardProps): JSX.
             Fallback er aktiv: data lagres midlertidig i minnet og kan forsvinne ved omstart.
           </p>
         ) : null}
+        <div className="gamification-pill-row">
+          <span className="status gamification">🔥 Streak: {gamification.currentStreak} dager</span>
+          <span className="status gamification">⭐ Level {gamification.level} · {gamification.totalPoints} XP</span>
+          <span className="status gamification">🏆 Beste streak: {gamification.longestStreak} dager</span>
+        </div>
       </section>
 
       <section className="grid">
+        <article className="card span-12 gamification-card">
+          <h2>Gamification</h2>
+          <div className="row two">
+            <div className="message">
+              <p className="tiny strong">Nivåfremdrift</p>
+              <p className="kpi">Level {gamification.level}</p>
+              <p className="tiny">
+                {gamification.pointsIntoLevel} / {gamification.levelSize} XP i nåværende nivå · {gamification.pointsToNextLevel} XP til neste nivå
+              </p>
+              <div className="xp-track" aria-label="XP-fremdrift">
+                <div className="xp-fill" style={{ width: `${gamification.progressPercent}%` }} />
+              </div>
+              <p className="tiny">Denne uken: {gamification.currentWeekPoints} XP</p>
+            </div>
+            <div className="message">
+              <p className="tiny strong">Personlig leaderboard (beste uker)</p>
+              {gamification.leaderboard.length === 0 ? (
+                <p className="tiny">Ingen poenguker ennå. Lagre en plan for å starte ranking.</p>
+              ) : (
+                <ol className="list leaderboard-list">
+                  {gamification.leaderboard.map((entry) => (
+                    <li key={entry.weekKey} className="leaderboard-item">
+                      <span>{entry.label}</span>
+                      <strong>{entry.points} XP</strong>
+                    </li>
+                  ))}
+                </ol>
+              )}
+              <p className="tiny">
+                Kilder: {gamification.totals.trainingPlans} treningsplaner, {gamification.totals.dietPlans} kostholdplaner og {gamification.totals.calorieSessions} kalorisesjoner.
+              </p>
+            </div>
+          </div>
+        </article>
+
+        {showCalories ? (
         <article className="card span-12">
           <h2>Kalorikalkulering</h2>
           <div className="row three">
@@ -362,8 +716,12 @@ export function PumpDashboard({ userId, displayName }: PumpDashboardProps): JSX.
               <option value="high">Høy</option>
             </select>
           </label>
-          <button onClick={() => void runCalorieCalculation()}>Beregn daglig inntak</button>
+          <button disabled={isCalculating} onClick={() => void runCalorieCalculation()}>
+            {isCalculating ? "Beregner..." : "Beregn daglig inntak"}
+          </button>
           {calorieError ? <p className="message error">{calorieError}</p> : null}
+          {calorieSuccess ? <p className="message success">{calorieSuccess}</p> : null}
+          {isCalculating ? <p className="message">Henter kaloridata og forslag...</p> : null}
           {calorieSession ? (
             <div className="message">
               <p className="kpi">{calorieSession.result.dailyCalories} kcal / dag</p>
@@ -380,9 +738,40 @@ export function PumpDashboard({ userId, displayName }: PumpDashboardProps): JSX.
             </div>
           ) : null}
         </article>
+        ) : null}
 
-        <article className="card span-6">
+        {showDiet ? (
+        <article className={`card ${showTraining ? "span-6" : "span-12"}`}>
           <h2>Kosthold og diettforslag</h2>
+          <label>
+            Antall måltider per dag
+            <select value={mealCount} onChange={(event) => setMealCount(Number(event.target.value))}>
+              <option value={3}>3 måltider</option>
+              <option value={4}>4 måltider</option>
+              <option value={5}>5 måltider</option>
+              <option value={6}>6 måltider</option>
+            </select>
+          </label>
+
+          {nutritionTargets ? (
+            <div className="message nutrition-kpis">
+              <p className="tiny strong">Daglige mål</p>
+              <div className="kpi-grid">
+                <p><strong>{nutritionTargets.calories}</strong> kcal</p>
+                <p><strong>{nutritionTargets.proteinGrams} g</strong> protein</p>
+                <p><strong>{nutritionTargets.carbGrams} g</strong> karbohydrat</p>
+                <p><strong>{nutritionTargets.fatGrams} g</strong> fett</p>
+                <p><strong>{nutritionTargets.waterLiters} L</strong> vann</p>
+                <p><strong>{nutritionTargets.fiberGrams} g</strong> fiber</p>
+              </div>
+              {caloriesPerMeal ? (
+                <p className="tiny">Mål per måltid ved {mealCount} måltider: ca. {caloriesPerMeal} kcal.</p>
+              ) : null}
+            </div>
+          ) : (
+            <p className="tiny">Kjør kalorikalkulering først for å få konkrete kostholdsmål.</p>
+          )}
+
           {dietSuggestion ? (
             <>
               <p>
@@ -393,15 +782,77 @@ export function PumpDashboard({ userId, displayName }: PumpDashboardProps): JSX.
                   <li key={meal}>{meal}</li>
                 ))}
               </ul>
+
+              <div className="message">
+                <p className="tiny strong">Forslag til handleliste</p>
+                <ul className="list compact">
+                  {grocerySuggestions.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="message">
+                <p className="tiny strong">Lagre forslag som kostholdplan</p>
+                <label>
+                  Navn på kostholdplan
+                  <input value={dietPlanName} onChange={(event) => setDietPlanName(event.target.value)} />
+                </label>
+                <label>
+                  Notater (valgfritt)
+                  <textarea
+                    value={dietPlanNotes}
+                    onChange={(event) => setDietPlanNotes(event.target.value)}
+                    placeholder="Hva vil du fokusere på i denne planen?"
+                  />
+                </label>
+                <button type="button" disabled={isSavingDietPlan} onClick={() => void saveDietPlanFromSuggestion()}>
+                  {isSavingDietPlan ? "Lagrer kostholdplan..." : "Lagre dette forslaget"}
+                </button>
+              </div>
             </>
           ) : (
             <p className="tiny">Kjør kalorikalkulering for å hente forslag.</p>
           )}
-          {dietError ? <p className="message error">{dietError}</p> : null}
-        </article>
 
+          <div className="message">
+            <p className="tiny strong">Eller lag manuell kostholdplan</p>
+            <label>
+              Måltider (ett per linje)
+              <textarea
+                value={manualMealsText}
+                onChange={(event) => setManualMealsText(event.target.value)}
+                placeholder={"Frokost: Havregrøt\nLunsj: Kyllingsalat\nMiddag: Laks og potet"}
+              />
+            </label>
+            <button type="button" className="secondary" disabled={isSavingDietPlan} onClick={() => void saveManualDietPlan()}>
+              {isSavingDietPlan ? "Lagrer kostholdplan..." : "Lagre manuell plan"}
+            </button>
+          </div>
+
+          {dietError ? <p className="message error">{dietError}</p> : null}
+          {dietPlanSuccess ? <p className="message success">{dietPlanSuccess}</p> : null}
+        </article>
+        ) : null}
+
+        {showTraining ? (
         <article className="card span-6">
           <h2>Treningsplaner</h2>
+          <p className="tiny">Velg et ferdig program og tilpass det videre:</p>
+          <div className="template-grid">
+            {trainingProgramTemplates.map((template) => (
+              <button
+                key={template.id}
+                type="button"
+                className={`secondary template-card ${selectedTemplateId === template.id ? "active" : ""}`}
+                onClick={() => applyTrainingProgram(template)}
+              >
+                <span className="strong">{template.name}</span>
+                <span className="tiny">{template.description}</span>
+              </button>
+            ))}
+          </div>
+
           <label>
             Plan-navn
             <input value={planName} onChange={(event) => setPlanName(event.target.value)} />
@@ -498,12 +949,15 @@ export function PumpDashboard({ userId, displayName }: PumpDashboardProps): JSX.
           ) : null}
 
           <div className="actions">
-            <button onClick={() => void createTrainingPlan()}>Lagre egen plan</button>
+            <button disabled={isSavingPlan} onClick={() => void createTrainingPlan()}>
+              {isSavingPlan ? "Lagrer plan..." : "Lagre egen plan"}
+            </button>
             <button type="button" className="reset-plan-button" onClick={resetTrainingPlan}>
               reset plan
             </button>
           </div>
           {trainingError ? <p className="message error">{trainingError}</p> : null}
+          {trainingSuccess ? <p className="message success">{trainingSuccess}</p> : null}
 
           {trainingSuggestions.length > 0 ? (
             <>
@@ -550,6 +1004,7 @@ export function PumpDashboard({ userId, displayName }: PumpDashboardProps): JSX.
             </>
           ) : null}
         </article>
+        ) : null}
       </section>
     </main>
   );

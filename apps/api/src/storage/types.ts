@@ -1,5 +1,6 @@
 import type {
   CalorieSession,
+  DietPlan,
   DietSuggestion,
   Profile,
   StorageMode,
@@ -21,6 +22,11 @@ export interface DietRepository {
   listByUserId(userId: string): Promise<DietSuggestion[]>;
 }
 
+export interface DietPlanRepository {
+  create(plan: DietPlan): Promise<DietPlan>;
+  listByUserId(userId: string): Promise<DietPlan[]>;
+}
+
 export interface TrainingRepository {
   create(plan: TrainingPlan): Promise<TrainingPlan>;
   listByUserId(userId: string): Promise<TrainingPlan[]>;
@@ -31,5 +37,6 @@ export interface StorageProvider {
   profile: ProfileRepository;
   calories: CalorieRepository;
   diets: DietRepository;
+  dietPlans: DietPlanRepository;
   training: TrainingRepository;
 }

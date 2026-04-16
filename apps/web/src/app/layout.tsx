@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { TopNavigation } from "./top-navigation";
+import Link from "next/link";
+import { TopNavAuth } from "../features/auth/top-nav-auth";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -11,7 +12,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }):
   return (
     <html lang="no">
       <body>
-        <TopNavigation />
+        <nav className="top-nav" aria-label="Hovedmeny">
+          <div className="top-nav-main">
+            <Link href="/">Startside</Link>
+            <Link href="/kalorier">Kalori og kosthold</Link>
+            <Link href="/trening">Trening</Link>
+            <Link href="/profil">Profil</Link>
+          </div>
+          <TopNavAuth />
+        </nav>
         {children}
       </body>
     </html>

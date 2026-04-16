@@ -80,6 +80,39 @@ a {
   transform: translateY(-1px);
 }
 
+.google-signin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  width: 100%;
+  margin-bottom: 0.85rem;
+  border: 1px solid #1b263b28;
+  background: #ffffff;
+  color: #1b263b;
+}
+
+.google-signin:hover {
+  border-color: #0f4c8188;
+  box-shadow: 0 6px 16px #0f4c811a;
+}
+
+.google-signin:disabled {
+  opacity: 0.68;
+  cursor: not-allowed;
+}
+
+.google-signin .google-icon {
+  display: inline-flex;
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.google-signin .google-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
 @media (max-width: 920px) {
   .top-nav {
     flex-direction: column;
@@ -207,18 +240,6 @@ main {
   gap: 0.9rem;
 }
 
-.home-gamification-grid {
-  display: grid;
-  gap: 0.9rem;
-  margin-bottom: 0.9rem;
-}
-
-@media (min-width: 880px) {
-  .home-gamification-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
 .home-skeleton-card {
   overflow: hidden;
 }
@@ -292,52 +313,6 @@ main {
   background: #fdecec;
   color: var(--warn);
   border-color: #efb5af;
-}
-
-.status.gamification {
-  background: #eef6fd;
-  color: #0b3558;
-  border-color: #9bc5e7;
-  font-weight: 700;
-}
-
-.gamification-pill-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  margin-top: 0.35rem;
-}
-
-.gamification-card {
-  background: linear-gradient(180deg, #fcfeff 0%, #f4f9ff 100%);
-}
-
-.xp-track {
-  width: 100%;
-  height: 12px;
-  border-radius: 999px;
-  border: 1px solid #1b263b22;
-  background: #e6eef7;
-  overflow: hidden;
-  margin: 0.45rem 0;
-}
-
-.xp-fill {
-  height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #0f4c81, #5fa8d3);
-}
-
-.leaderboard-list {
-  padding-left: 1.15rem;
-}
-
-.leaderboard-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 0.8rem;
-  padding-right: 0.25rem;
 }
 
 .grid {

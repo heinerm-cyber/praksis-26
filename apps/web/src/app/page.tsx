@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { signOut } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
 import { requestJson } from "../features/common/api";
-import { getAuthSession, type AuthSession } from "../features/auth/session";
+import { clearAuthSession, getAuthSession, type AuthSession } from "../features/auth/session";
 
 type PlanPreview = {
   id: string;
@@ -28,18 +29,6 @@ type DietPlanPreview = {
   meals: string[];
 };
 
-type PendingDeletion =
-  | {
-      kind: "training";
-      index: number;
-      plan: PlanPreview;
-    }
-  | {
-      kind: "diet";
-      index: number;
-      plan: DietPlanPreview;
-    };
-
 export default function HomePage(): JSX.Element {
   const apiBaseUrl = useMemo(
     () => process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000",
@@ -53,6 +42,7 @@ export default function HomePage(): JSX.Element {
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [pendingDeletion, setPendingDeletion] = useState<PendingDeletion | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const latestTrainingPlan = trainingPlans[0] ?? null;
 
   async function loadPlans(): Promise<void> {
     if (!authSession) {
@@ -81,8 +71,49 @@ export default function HomePage(): JSX.Element {
   }
 
   useEffect(() => {
-    setAuthSession(getAuthSession());
-    setAuthReady(true);
+    async function resolveSession(): Promise<void> {
+      const localSession = getAuthSession();
+      if (localSession) {
+        setAuthSession(localSession);
+        setAuthReady(true);
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/auth/session", { cache: "no-store" });
+        if (!response.ok) {
+          setAuthReady(true);
+          return;
+        }
+
+        const payload = (await response.json()) as {
+          user?: {
+            email?: string | null;
+            name?: string | null;
+            sub?: string | null;
+          };
+        };
+
+        if (!payload.user?.email || !payload.user.name) {
+          setAuthReady(true);
+          return;
+        }
+
+        setAuthSession({
+          userId: payload.user.sub ?? payload.user.email,
+          email: payload.user.email,
+          name: payload.user.name,
+          loggedInAt: new Date().toISOString(),
+          provider: "google"
+        });
+      } catch {
+        // Keep home unauthenticated if OAuth lookup fails.
+      } finally {
+        setAuthReady(true);
+      }
+    }
+
+    void resolveSession();
   }, []);
 
   useEffect(() => {
@@ -92,134 +123,40 @@ export default function HomePage(): JSX.Element {
     void loadPlans();
   }, [apiBaseUrl, authSession, authReady]);
 
-  function restorePendingPlan(deletion: PendingDeletion): void {
-    if (deletion.kind === "training") {
-      setTrainingPlans((current) => {
-        const next = [...current];
-        next.splice(deletion.index, 0, deletion.plan);
-        return next;
-      });
-      return;
-    }
-
-    setDietPlans((current) => {
-      const next = [...current];
-      next.splice(deletion.index, 0, deletion.plan);
-      return next;
-    });
-  }
-
-  async function commitPendingDeletion(deletion: PendingDeletion): Promise<void> {
-    if (!authSession) {
-      return;
-    }
-
-    try {
-      const path =
-        deletion.kind === "training"
-          ? `/api/training/plans/${deletion.plan.id}`
-          : `/api/diets/plans/${deletion.plan.id}`;
-
-      setError(null);
-      setActionSuccess(null);
-      await requestJson<{ deleted: boolean }>(apiBaseUrl, path, { method: "DELETE" }, authSession.userId);
-
-      setActionSuccess(
-        deletion.kind === "training" ? "Treningsplan slettet permanent." : "Kostholdplan slettet permanent."
-      );
-    } catch (deleteError) {
-      restorePendingPlan(deletion);
-      setError(deleteError instanceof Error ? deleteError.message : "Kunne ikke slette plan");
-    } finally {
-      setPendingDeletion((current) => {
-        if (!current) {
-          return null;
-        }
-
-        if (current.kind === deletion.kind && current.plan.id === deletion.plan.id) {
-          return null;
-        }
-
-        return current;
-      });
-    }
-  }
-
-  useEffect(() => {
-    if (!pendingDeletion || !authSession) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      void commitPendingDeletion(pendingDeletion);
-    }, 5000);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [pendingDeletion, authSession, apiBaseUrl]);
-
-  function requestTrainingDelete(planId: string): void {
-    if (pendingDeletion) {
-      setError("Fullfør eller angre forrige sletting før du sletter en ny plan.");
-      return;
-    }
-
-    const index = trainingPlans.findIndex((plan) => plan.id === planId);
-    if (index < 0) {
-      return;
-    }
-
-    const plan = trainingPlans[index];
-    setTrainingPlans((current) => current.filter((item) => item.id !== planId));
-    setPendingDeletion({ kind: "training", index, plan });
+  async function logout(): Promise<void> {
+    clearAuthSession();
+    setAuthSession(null);
     setError(null);
-    setActionSuccess("Treningsplan markert for sletting. Angre innen 5 sekunder.");
-  }
-
-  function requestDietDelete(planId: string): void {
-    if (pendingDeletion) {
-      setError("Fullfør eller angre forrige sletting før du sletter en ny plan.");
-      return;
-    }
-
-    const index = dietPlans.findIndex((plan) => plan.id === planId);
-    if (index < 0) {
-      return;
-    }
-
-    const plan = dietPlans[index];
-    setDietPlans((current) => current.filter((item) => item.id !== planId));
-    setPendingDeletion({ kind: "diet", index, plan });
-    setError(null);
-    setActionSuccess("Kostholdplan markert for sletting. Angre innen 5 sekunder.");
-  }
-
-  function undoPendingDeletion(): void {
-    if (!pendingDeletion) {
-      return;
-    }
-
-    restorePendingPlan(pendingDeletion);
-    setPendingDeletion(null);
-    setError(null);
-    setActionSuccess("Sletting ble angret.");
+    await signOut({ callbackUrl: "/login", redirect: true });
   }
 
   return (
     <main>
-      <section className="hero home-hero" aria-label="pump.no merkevare">
-        <h1 className="brand-mark" aria-label="pump.no">
-          <span className="brand-pill">Mine lagrede planer</span>
-          <span className="brand-word">pump</span>
-          <span className="brand-dot">.</span>
-          <span className="brand-word">no</span>
-        </h1>
-        {authSession ? (
-          <p className="tiny">Innlogget som: {authSession.name}</p>
-        ) : null}
-      </section>
+      {!authSession ? (
+        <article className="card login-card">
+          <div className="actions">
+            <Link href="/login" className="oauth-button">
+              Gå til logg inn
+            </Link>
+            <Link href="/register" className="oauth-button">
+              Registrer bruker
+            </Link>
+          </div>
+        </article>
+      ) : null}
 
+      {error ? <p className="message error">{error}</p> : null}
+      {!authReady ? <p className="message">Sjekker innlogging...</p> : null}
+      {authReady && authSession && isLoading ? <p className="message">Henter planene dine...</p> : null}
+
+      {authReady && !authSession ? (
+        <article className="card login-card">
+          <h2>Logg inn for å se dine planer</h2>
+          <p>Login og registrering er aktiv igjen. Velg en av knappene over for å fortsette.</p>
+        </article>
+      ) : null}
+
+      {authSession ? (
       <section className="home-plan-list" aria-label="Lagrede planer">
         {error ? <p className="message error">{error}</p> : null}
         {actionSuccess ? <p className="message success">{actionSuccess}</p> : null}
@@ -389,6 +326,20 @@ export default function HomePage(): JSX.Element {
           </>
         )}
       </section>
+      ) : null}
+
+      {authSession ? (
+        <article className="card login-card">
+          <div className="actions">
+            <button className="secondary home-refresh-button" onClick={() => void loadPlans()} disabled={isLoading}>
+              {isLoading ? "Oppdaterer..." : "Oppdater planer"}
+            </button>
+            <button type="button" className="secondary" onClick={logout}>
+              Logg ut
+            </button>
+          </div>
+        </article>
+      ) : null}
     </main>
   );
 }

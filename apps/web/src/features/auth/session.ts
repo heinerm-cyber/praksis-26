@@ -3,6 +3,7 @@ export type AuthSession = {
   email: string;
   name: string;
   loggedInAt: string;
+  provider?: "local" | "google";
 };
 
 const SESSION_KEY = "pump.localAuthSession";
@@ -48,4 +49,8 @@ export function clearAuthSession(): void {
   }
 
   window.localStorage.removeItem(SESSION_KEY);
+}
+
+export function isGoogleSession(session: AuthSession | null): boolean {
+  return session?.provider === "google";
 }

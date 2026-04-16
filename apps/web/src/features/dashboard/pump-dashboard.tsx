@@ -7,16 +7,9 @@ import type {
   CalorieSession,
   DietPlan,
   DietSuggestion,
-  StorageMode,
   TrainingDayPlan,
   TrainingPlan
 } from "./types";
-
-type HealthResponse = {
-  status: string;
-  storageMode: StorageMode;
-  fallbackActive: boolean;
-};
 
 const predefinedTrainingTypes = [
   "Bryst",
@@ -190,9 +183,6 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
   const effectiveUserId = userId?.trim() || "demo-user";
   const effectiveDisplayName = displayName?.trim() || "Demo bruker";
 
-  const [storageMode, setStorageMode] = useState<StorageMode>("memory");
-  const [healthError, setHealthError] = useState<string | null>(null);
-
   const [calorieInput, setCalorieInput] = useState<CalorieInput>(initialCalorieInput);
   const [calorieSession, setCalorieSession] = useState<CalorieSession | null>(null);
   const [calorieError, setCalorieError] = useState<string | null>(null);
@@ -225,28 +215,6 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
   const [weekPlan, setWeekPlan] = useState<TrainingDayPlan[]>(
     weekDays.map((day) => ({ day, exercises: [], notes: "" }))
   );
-
-  async function loadHealth(): Promise<void> {
-    try {
-      setHealthError(null);
-      const response = await fetch(`${apiBaseUrl}/health`);
-      if (!response.ok) {
-        throw new Error("Kunne ikke hente helsestatus");
-      }
-      const health = (await response.json()) as HealthResponse;
-      setStorageMode(health.storageMode);
-    } catch (error) {
-      setHealthError(error instanceof Error ? error.message : "Ukjent feil");
-    }
-  }
-
-  useEffect(() => {
-    void loadHealth();
-    const id = setInterval(() => {
-      void loadHealth();
-    }, 20000);
-    return () => clearInterval(id);
-  }, [apiBaseUrl]);
 
   useEffect(() => {
     void loadTrainingPlans();
@@ -605,88 +573,6 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
     }
   }
 
-  function restorePendingTrainingPlan(deletion: PendingTrainingDeletion): void {
-    setTrainingPlans((current) => {
-      const next = [...current];
-      next.splice(deletion.index, 0, deletion.plan);
-      return next;
-    });
-  }
-
-  async function commitTrainingDeletion(deletion: PendingTrainingDeletion): Promise<void> {
-    try {
-      setTrainingError(null);
-      setTrainingSuccess(null);
-
-      await requestJson<{ deleted: boolean }>(
-        apiBaseUrl,
-        `/api/training/plans/${deletion.plan.id}`,
-        { method: "DELETE" },
-        effectiveUserId
-      );
-
-      setTrainingSuccess("Treningsplanen ble slettet permanent.");
-    } catch (error) {
-      restorePendingTrainingPlan(deletion);
-      setTrainingError(error instanceof Error ? error.message : "Kunne ikke slette treningsplan");
-    } finally {
-      setPendingTrainingDeletion((current) => {
-        if (!current) {
-          return null;
-        }
-
-        if (current.plan.id === deletion.plan.id) {
-          return null;
-        }
-
-        return current;
-      });
-    }
-  }
-
-  useEffect(() => {
-    if (!pendingTrainingDeletion) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      void commitTrainingDeletion(pendingTrainingDeletion);
-    }, 5000);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [pendingTrainingDeletion, apiBaseUrl, effectiveUserId]);
-
-  function requestTrainingDeletion(planId: string): void {
-    if (pendingTrainingDeletion) {
-      setTrainingError("Fullfør eller angre forrige sletting før du sletter en ny plan.");
-      return;
-    }
-
-    const index = trainingPlans.findIndex((plan) => plan.id === planId);
-    if (index < 0) {
-      return;
-    }
-
-    const plan = trainingPlans[index];
-    setTrainingPlans((current) => current.filter((item) => item.id !== planId));
-    setPendingTrainingDeletion({ index, plan });
-    setTrainingError(null);
-    setTrainingSuccess("Treningsplan markert for sletting. Angre innen 5 sekunder.");
-  }
-
-  function undoTrainingDeletion(): void {
-    if (!pendingTrainingDeletion) {
-      return;
-    }
-
-    restorePendingTrainingPlan(pendingTrainingDeletion);
-    setPendingTrainingDeletion(null);
-    setTrainingError(null);
-    setTrainingSuccess("Sletting ble angret.");
-  }
-
   function toggleTrainingType(type: string): void {
     setSelectedTypes((current) => {
       if (current.includes(type)) {
@@ -763,29 +649,6 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
 
   return (
     <main>
-      <section className="hero">
-        <h1 className="brand-mark" aria-label="pump.no">
-          <span className="brand-pill">Tren smartere</span>
-          <span className="brand-word">pump</span>
-          <span className="brand-dot">.</span>
-          <span className="brand-word">no</span>
-        </h1>
-        <p>
-          Nettbasert MVP for profil, kalorikalkulering, kostholdsråd og treningsplaner, bygget med API-først
-          arkitektur.
-        </p>
-        <p className="tiny">Innlogget som: {effectiveDisplayName}</p>
-        <span className={`status ${storageMode === "memory" ? "memory" : ""}`}>
-          Lagringsmodus: {storageMode}
-        </span>
-        {healthError ? <p className="message error">{healthError}</p> : null}
-        {storageMode === "memory" ? (
-          <p className="message error">
-            Fallback er aktiv: data lagres midlertidig i minnet og kan forsvinne ved omstart.
-          </p>
-        ) : null}
-      </section>
-
       <section className="grid">
         {showCalories ? (
         <article className="card span-12">
@@ -1124,10 +987,10 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
 
           <div className="actions">
             <button disabled={isSavingPlan} onClick={() => void createTrainingPlan()}>
-              {isSavingPlan ? "Lagrer plan..." : "Lagre egen plan"}
+              {isSavingPlan ? "Lagrer..." : "Lagre"}
             </button>
             <button type="button" className="reset-plan-button" onClick={resetTrainingPlan}>
-              Nullstill plan
+              Reset
             </button>
           </div>
           {trainingError ? <p className="message error">{trainingError}</p> : null}

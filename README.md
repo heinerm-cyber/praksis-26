@@ -94,6 +94,19 @@ If you move the repository between operating systems (for example Windows to Ubu
 ## Current auth note
 - API currently uses x-user-id header as temporary user context for MVP development.
 - Azure AD B2C token validation is planned next and documented in instructions.
+- Web supports local e-post/passord login and optional Google OAuth via NextAuth when Google env values are configured.
+- Web startup is login-first: users without valid NextAuth cookie are redirected to /login; users with valid cookie go directly to startside.
+
+## Google OAuth setup (web)
+1. In Google Cloud Console, create OAuth 2.0 Client ID (Web application).
+2. Add redirect URI: http://localhost:3000/api/auth/callback/google
+3. Copy apps/web/.env.example to apps/web/.env and set values:
+	- NEXTAUTH_URL=http://localhost:3000
+	- NEXTAUTH_SECRET=<any long random secret for local dev>
+	- GOOGLE_CLIENT_ID=<from Google Cloud>
+	- GOOGLE_CLIENT_SECRET=<from Google Cloud>
+4. Start web and open /login.
+5. Use Sign-in with Google to authenticate. Local login/register remains available in the same view.
 
 ## Fallback behavior details
 - If COSMOS_ENDPOINT or COSMOS_KEY is missing, API starts in memory mode.

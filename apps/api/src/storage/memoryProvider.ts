@@ -67,6 +67,18 @@ class MemoryDietPlanRepository implements DietPlanRepository {
   async listByUserId(userId: string): Promise<DietPlan[]> {
     return this.map.get(userId) ?? [];
   }
+
+  async deleteById(userId: string, planId: string): Promise<boolean> {
+    const current = this.map.get(userId) ?? [];
+    const next = current.filter((plan) => plan.id !== planId);
+
+    if (next.length === current.length) {
+      return false;
+    }
+
+    this.map.set(userId, next);
+    return true;
+  }
 }
 
 class MemoryTrainingRepository implements TrainingRepository {
@@ -80,6 +92,18 @@ class MemoryTrainingRepository implements TrainingRepository {
 
   async listByUserId(userId: string): Promise<TrainingPlan[]> {
     return this.map.get(userId) ?? [];
+  }
+
+  async deleteById(userId: string, planId: string): Promise<boolean> {
+    const current = this.map.get(userId) ?? [];
+    const next = current.filter((plan) => plan.id !== planId);
+
+    if (next.length === current.length) {
+      return false;
+    }
+
+    this.map.set(userId, next);
+    return true;
   }
 }
 

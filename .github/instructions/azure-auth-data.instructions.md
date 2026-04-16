@@ -67,3 +67,10 @@ applyTo: "{apps/api/src/**/*.ts,README.md,.github/copilot-instructions.md}"
 - 2026-04-14: Toppnavigasjon er delt i hovedfaner og separat auth-seksjon; login/register er flyttet bort fra hovedfanene.
 - 2026-04-14: Egen profilfane (/profil) og egen leaderboard-fane (/leaderboard) er lagt til i web.
 - 2026-04-16: run-all.cmd starter nå run-api.cmd og run-web.cmd direkte (uten npm-run-all) og kjører npm ci automatisk når plattformspesifikk esbuild-mismatch oppdages.
+- 2026-04-16: Toppnavigasjon viser nå Logg inn og Registrer kun når bruker er utlogget; når bruker er innlogget erstattes disse med én Profil-knapp til /profil.
+- 2026-04-16: Kostholdvisningen har nå strukturert manuell spiseplanbygger med egne felt per måltid, preview og hurtigutfylling fra forslag før lagring.
+- 2026-04-16: Startsiden er forenklet til kun brukerens lagrede planer (trening og kosthold) uten øvrige hero/auth/gamification-seksjoner.
+- 2026-04-16: Startsiden beholder pump.no-logo/brand-hero øverst, mens øvrig innhold fortsatt er begrenset til brukerens lagrede planer.
+- 2026-04-16: Gamification er nå samlet kun på egen leaderboard-side og vises ikke lenger inne i kosthold-/treningsdashboardet.
+- 2026-04-16: Bruker kan nå slette lagrede treningsplaner og kostholdplaner via web-UI; API støtter DELETE-endepunkter med userId-skoping for både memory- og cosmos-adapter.
+- 2026-04-16: Sletting i web-UI bruker nå 5 sekunders angre-vindu før permanent DELETE-kall; tom-tilstander har tydelige CTA-er og visuell rytme er strammet med bedre seksjonsstruktur, spacing og knappehierarki.

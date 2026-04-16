@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { requestJson } from "../common/api";
-import { calculateGamification } from "../common/gamification";
 import type {
   CalorieInput,
   CalorieSession,
@@ -48,6 +47,49 @@ const initialCalorieInput: CalorieInput = {
   activityLevel: "medium"
 };
 
+type ManualMealDraft = {
+  id: string;
+  name: string;
+  details: string;
+};
+
+const defaultMealNames = ["Frokost", "Lunsj", "Middag", "Kveldsmat", "Mellommåltid 1", "Mellommåltid 2"];
+
+function createManualMealDraft(index: number): ManualMealDraft {
+  return {
+    id: `${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`,
+    name: defaultMealNames[index] ?? `Måltid ${index + 1}`,
+    details: ""
+  };
+}
+
+function buildManualMealDrafts(count: number): ManualMealDraft[] {
+  return Array.from({ length: count }, (_, index) => createManualMealDraft(index));
+}
+
+function formatManualMeals(meals: ManualMealDraft[]): string[] {
+  return meals
+    .map((meal) => {
+      const name = meal.name.trim();
+      const details = meal.details.trim();
+
+      if (!name && !details) {
+        return null;
+      }
+
+      if (!name) {
+        return details;
+      }
+
+      if (!details) {
+        return name;
+      }
+
+      return `${name}: ${details}`;
+    })
+    .filter((meal): meal is string => Boolean(meal));
+}
+
 type TrainingProgramTemplate = {
   id: string;
   name: string;
@@ -56,6 +98,11 @@ type TrainingProgramTemplate = {
   trainingTypes: string[];
   weeklySessions: number;
   weekPlan: TrainingDayPlan[];
+};
+
+type PendingTrainingDeletion = {
+  index: number;
+  plan: TrainingPlan;
 };
 
 const trainingProgramTemplates: TrainingProgramTemplate[] = [
@@ -158,10 +205,9 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
   const [isSavingDietPlan, setIsSavingDietPlan] = useState(false);
   const [dietPlanName, setDietPlanName] = useState("Min kostholdplan");
   const [dietPlanNotes, setDietPlanNotes] = useState("");
-  const [manualMealsText, setManualMealsText] = useState("");
+  const [manualMeals, setManualMeals] = useState<ManualMealDraft[]>(() => buildManualMealDrafts(4));
   const [mealCount, setMealCount] = useState(4);
   const [dietPlans, setDietPlans] = useState<DietPlan[]>([]);
-  const [calorieHistory, setCalorieHistory] = useState<CalorieSession[]>([]);
 
   const [selectedTypes, setSelectedTypes] = useState<string[]>(["Bryst"]);
   const [planName, setPlanName] = useState("Min ukeplan");
@@ -171,6 +217,7 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
   const [trainingError, setTrainingError] = useState<string | null>(null);
   const [trainingSuccess, setTrainingSuccess] = useState<string | null>(null);
   const [isSavingPlan, setIsSavingPlan] = useState(false);
+  const [pendingTrainingDeletion, setPendingTrainingDeletion] = useState<PendingTrainingDeletion | null>(null);
   const [replacePlansOnNextSave, setReplacePlansOnNextSave] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [activeDay, setActiveDay] = useState(weekDays[0]);
@@ -207,7 +254,6 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
 
   useEffect(() => {
     void loadDietPlans();
-    void loadCalorieHistory();
   }, [apiBaseUrl, effectiveUserId]);
 
   const availableExercises = useMemo(() => {
@@ -230,15 +276,6 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
   const plannedSessionCount = useMemo(
     () => weekPlan.filter((day) => day.exercises.length > 0).length,
     [weekPlan]
-  );
-  const gamification = useMemo(
-    () =>
-      calculateGamification({
-        trainingPlans,
-        dietPlans,
-        calorieSessions: calorieHistory
-      }),
-    [trainingPlans, dietPlans, calorieHistory]
   );
   const showCalories = view === "all" || view === "calories" || view === "nutrition";
   const showDiet = view === "all" || view === "diet" || view === "nutrition";
@@ -273,6 +310,22 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
 
     return Math.round(nutritionTargets.calories / mealCount);
   }, [mealCount, nutritionTargets]);
+
+  const manualMealPreview = useMemo(() => formatManualMeals(manualMeals), [manualMeals]);
+
+  useEffect(() => {
+    setManualMeals((current) => {
+      const trimmed = current.slice(0, mealCount);
+
+      if (trimmed.length === mealCount) {
+        return current;
+      }
+
+      const missingCount = mealCount - trimmed.length;
+      const appended = Array.from({ length: missingCount }, (_, index) => createManualMealDraft(trimmed.length + index));
+      return [...trimmed, ...appended];
+    });
+  }, [mealCount]);
 
   const grocerySuggestions = useMemo(() => {
     if (!dietSuggestion) {
@@ -338,7 +391,6 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
       );
       setTrainingSuggestions(trainingResponse.suggestions);
       setCalorieSuccess("Kalori- og kostholdsgrunnlag er oppdatert.");
-      setCalorieHistory((current) => [response.session, ...current]);
     } catch (error) {
       setCalorieError(error instanceof Error ? error.message : "Kalkulering feilet");
     } finally {
@@ -427,10 +479,7 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
 
   async function saveManualDietPlan(): Promise<void> {
     try {
-      const meals = manualMealsText
-        .split(/\r?\n/)
-        .map((item) => item.trim())
-        .filter(Boolean);
+      const meals = formatManualMeals(manualMeals);
 
       if (!dietPlanName.trim()) {
         throw new Error("Skriv inn et navn på kostholdplanen");
@@ -462,12 +511,70 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
 
       setDietPlanSuccess(`Lagret manuell kostholdplan: ${response.plan.planName}`);
       setDietPlans((current) => [response.plan, ...current]);
-      setManualMealsText("");
+      setManualMeals(buildManualMealDrafts(mealCount));
     } catch (error) {
       setDietError(error instanceof Error ? error.message : "Kunne ikke lagre kostholdplan");
     } finally {
       setIsSavingDietPlan(false);
     }
+  }
+
+  function updateManualMeal(mealId: string, field: "name" | "details", value: string): void {
+    setManualMeals((current) =>
+      current.map((meal) => {
+        if (meal.id !== mealId) {
+          return meal;
+        }
+
+        return {
+          ...meal,
+          [field]: value
+        };
+      })
+    );
+  }
+
+  function resetManualMeals(): void {
+    setManualMeals(buildManualMealDrafts(mealCount));
+  }
+
+  function fillManualMealsFromSuggestion(): void {
+    if (dietSuggestion?.meals.length) {
+      setManualMeals((current) =>
+        current.map((meal, index) => {
+          const suggestionMeal = dietSuggestion.meals[index];
+          if (!suggestionMeal) {
+            return meal;
+          }
+
+          const [suggestedName, ...rest] = suggestionMeal.split(":");
+          if (rest.length === 0) {
+            return {
+              ...meal,
+              details: suggestionMeal.trim()
+            };
+          }
+
+          return {
+            ...meal,
+            name: suggestedName.trim() || meal.name,
+            details: rest.join(":").trim()
+          };
+        })
+      );
+      return;
+    }
+
+    if (!caloriesPerMeal) {
+      return;
+    }
+
+    setManualMeals((current) =>
+      current.map((meal) => ({
+        ...meal,
+        details: `Mål: ca. ${caloriesPerMeal} kcal` 
+      }))
+    );
   }
 
   async function loadTrainingPlans(): Promise<void> {
@@ -498,18 +605,86 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
     }
   }
 
-  async function loadCalorieHistory(): Promise<void> {
+  function restorePendingTrainingPlan(deletion: PendingTrainingDeletion): void {
+    setTrainingPlans((current) => {
+      const next = [...current];
+      next.splice(deletion.index, 0, deletion.plan);
+      return next;
+    });
+  }
+
+  async function commitTrainingDeletion(deletion: PendingTrainingDeletion): Promise<void> {
     try {
-      const listResponse = await requestJson<{ sessions: CalorieSession[] }>(
+      setTrainingError(null);
+      setTrainingSuccess(null);
+
+      await requestJson<{ deleted: boolean }>(
         apiBaseUrl,
-        "/api/calories/history",
-        { method: "GET" },
+        `/api/training/plans/${deletion.plan.id}`,
+        { method: "DELETE" },
         effectiveUserId
       );
-      setCalorieHistory(listResponse.sessions);
-    } catch {
-      setCalorieHistory([]);
+
+      setTrainingSuccess("Treningsplanen ble slettet permanent.");
+    } catch (error) {
+      restorePendingTrainingPlan(deletion);
+      setTrainingError(error instanceof Error ? error.message : "Kunne ikke slette treningsplan");
+    } finally {
+      setPendingTrainingDeletion((current) => {
+        if (!current) {
+          return null;
+        }
+
+        if (current.plan.id === deletion.plan.id) {
+          return null;
+        }
+
+        return current;
+      });
     }
+  }
+
+  useEffect(() => {
+    if (!pendingTrainingDeletion) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void commitTrainingDeletion(pendingTrainingDeletion);
+    }, 5000);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [pendingTrainingDeletion, apiBaseUrl, effectiveUserId]);
+
+  function requestTrainingDeletion(planId: string): void {
+    if (pendingTrainingDeletion) {
+      setTrainingError("Fullfør eller angre forrige sletting før du sletter en ny plan.");
+      return;
+    }
+
+    const index = trainingPlans.findIndex((plan) => plan.id === planId);
+    if (index < 0) {
+      return;
+    }
+
+    const plan = trainingPlans[index];
+    setTrainingPlans((current) => current.filter((item) => item.id !== planId));
+    setPendingTrainingDeletion({ index, plan });
+    setTrainingError(null);
+    setTrainingSuccess("Treningsplan markert for sletting. Angre innen 5 sekunder.");
+  }
+
+  function undoTrainingDeletion(): void {
+    if (!pendingTrainingDeletion) {
+      return;
+    }
+
+    restorePendingTrainingPlan(pendingTrainingDeletion);
+    setPendingTrainingDeletion(null);
+    setTrainingError(null);
+    setTrainingSuccess("Sletting ble angret.");
   }
 
   function toggleTrainingType(type: string): void {
@@ -609,49 +784,9 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
             Fallback er aktiv: data lagres midlertidig i minnet og kan forsvinne ved omstart.
           </p>
         ) : null}
-        <div className="gamification-pill-row">
-          <span className="status gamification">🔥 Streak: {gamification.currentStreak} dager</span>
-          <span className="status gamification">⭐ Level {gamification.level} · {gamification.totalPoints} XP</span>
-          <span className="status gamification">🏆 Beste streak: {gamification.longestStreak} dager</span>
-        </div>
       </section>
 
       <section className="grid">
-        <article className="card span-12 gamification-card">
-          <h2>Gamification</h2>
-          <div className="row two">
-            <div className="message">
-              <p className="tiny strong">Nivåfremdrift</p>
-              <p className="kpi">Level {gamification.level}</p>
-              <p className="tiny">
-                {gamification.pointsIntoLevel} / {gamification.levelSize} XP i nåværende nivå · {gamification.pointsToNextLevel} XP til neste nivå
-              </p>
-              <div className="xp-track" aria-label="XP-fremdrift">
-                <div className="xp-fill" style={{ width: `${gamification.progressPercent}%` }} />
-              </div>
-              <p className="tiny">Denne uken: {gamification.currentWeekPoints} XP</p>
-            </div>
-            <div className="message">
-              <p className="tiny strong">Personlig leaderboard (beste uker)</p>
-              {gamification.leaderboard.length === 0 ? (
-                <p className="tiny">Ingen poenguker ennå. Lagre en plan for å starte ranking.</p>
-              ) : (
-                <ol className="list leaderboard-list">
-                  {gamification.leaderboard.map((entry) => (
-                    <li key={entry.weekKey} className="leaderboard-item">
-                      <span>{entry.label}</span>
-                      <strong>{entry.points} XP</strong>
-                    </li>
-                  ))}
-                </ol>
-              )}
-              <p className="tiny">
-                Kilder: {gamification.totals.trainingPlans} treningsplaner, {gamification.totals.dietPlans} kostholdplaner og {gamification.totals.calorieSessions} kalorisesjoner.
-              </p>
-            </div>
-          </div>
-        </article>
-
         {showCalories ? (
         <article className="card span-12">
           <h2>Kalorikalkulering</h2>
@@ -817,17 +952,56 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
 
           <div className="message">
             <p className="tiny strong">Eller lag manuell kostholdplan</p>
-            <label>
-              Måltider (ett per linje)
-              <textarea
-                value={manualMealsText}
-                onChange={(event) => setManualMealsText(event.target.value)}
-                placeholder={"Frokost: Havregrøt\nLunsj: Kyllingsalat\nMiddag: Laks og potet"}
-              />
-            </label>
-            <button type="button" className="secondary" disabled={isSavingDietPlan} onClick={() => void saveManualDietPlan()}>
-              {isSavingDietPlan ? "Lagrer kostholdplan..." : "Lagre manuell plan"}
-            </button>
+            <p className="tiny">
+              Bygg spiseplanen måltid for måltid. {caloriesPerMeal ? `Mål per måltid: ca. ${caloriesPerMeal} kcal.` : "Kjør kaloriutregning for kcal-mål per måltid."}
+            </p>
+
+            <div className="manual-meal-grid">
+              {manualMeals.map((meal, index) => (
+                <div key={meal.id} className="manual-meal-card">
+                  <p className="tiny strong">Måltid {index + 1}</p>
+                  <label>
+                    Navn
+                    <input
+                      value={meal.name}
+                      onChange={(event) => updateManualMeal(meal.id, "name", event.target.value)}
+                      placeholder={`Måltid ${index + 1}`}
+                    />
+                  </label>
+                  <label>
+                    Innhold
+                    <textarea
+                      value={meal.details}
+                      onChange={(event) => updateManualMeal(meal.id, "details", event.target.value)}
+                      placeholder="For eksempel: Havregrøt med bær og yoghurt"
+                    />
+                  </label>
+                </div>
+              ))}
+            </div>
+
+            <div className="actions manual-meal-actions">
+              <button type="button" className="secondary" onClick={fillManualMealsFromSuggestion}>
+                Fyll inn forslag
+              </button>
+              <button type="button" className="secondary" onClick={resetManualMeals}>
+                Tøm måltider
+              </button>
+              <button type="button" disabled={isSavingDietPlan} onClick={() => void saveManualDietPlan()}>
+                {isSavingDietPlan ? "Lagrer kostholdplan..." : "Lagre manuell plan"}
+              </button>
+            </div>
+
+            {manualMealPreview.length > 0 ? (
+              <>
+                <p className="tiny strong">Plan-preview</p>
+                <ul className="list compact">
+                  {manualMealPreview.map((meal) => (
+                    <li key={meal}>{meal}</li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
           </div>
 
           {dietError ? <p className="message error">{dietError}</p> : null}
@@ -953,11 +1127,19 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
               {isSavingPlan ? "Lagrer plan..." : "Lagre egen plan"}
             </button>
             <button type="button" className="reset-plan-button" onClick={resetTrainingPlan}>
-              reset plan
+              Nullstill plan
             </button>
           </div>
           {trainingError ? <p className="message error">{trainingError}</p> : null}
           {trainingSuccess ? <p className="message success">{trainingSuccess}</p> : null}
+          {pendingTrainingDeletion ? (
+            <div className="message warning undo-banner">
+              <p>Treningsplanen slettes permanent om 5 sekunder.</p>
+              <button type="button" className="secondary" onClick={undoTrainingDeletion}>
+                Angre sletting
+              </button>
+            </div>
+          ) : null}
 
           {trainingSuggestions.length > 0 ? (
             <>
@@ -976,9 +1158,19 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
               <ul className="list plans-list">
                 {trainingPlans.map((plan) => (
                   <li key={plan.id} className="plan-item">
-                    <p>
-                      <strong>{plan.planName}</strong> - {plan.weeklySessions} økter/uke ({plan.trainingTypes.join(", ")})
-                    </p>
+                    <div className="plan-item-head">
+                      <p>
+                        <strong>{plan.planName}</strong> - {plan.weeklySessions} økter/uke ({plan.trainingTypes.join(", ")})
+                      </p>
+                      <button
+                        type="button"
+                        className="secondary"
+                        disabled={Boolean(pendingTrainingDeletion)}
+                        onClick={() => requestTrainingDeletion(plan.id)}
+                      >
+                        Slett plan
+                      </button>
+                    </div>
                     {plan.weekPlan?.length ? (
                       <div className="week-plan-grid">
                         {plan.weekPlan.map((day) => (

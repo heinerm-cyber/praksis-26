@@ -63,6 +63,10 @@ const suggestionQuery = z.object({
   dailyCalories: z.coerce.number().int().positive()
 });
 
+const planParamsSchema = z.object({
+  planId: z.string().uuid()
+});
+
 export function createTrainingRoutes(storage: StorageProvider): Router {
   const router = Router();
 
@@ -88,6 +92,22 @@ export function createTrainingRoutes(storage: StorageProvider): Router {
     try {
       const plans = await storage.training.listByUserId(req.userId!);
       res.json({ plans });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.delete("/plans/:planId", async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const { planId } = planParamsSchema.parse(req.params);
+      const deleted = await storage.training.deleteById(req.userId!, planId);
+
+      if (!deleted) {
+        res.status(404).json({ error: "Fant ikke treningsplan" });
+        return;
+      }
+
+      res.json({ deleted: true });
     } catch (error) {
       next(error);
     }

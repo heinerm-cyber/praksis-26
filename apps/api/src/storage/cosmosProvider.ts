@@ -25,6 +25,15 @@ type ContainerConfig = {
   training: string;
 };
 
+function isCosmosNotFoundError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const maybe = error as { code?: number; statusCode?: number };
+  return maybe.code === 404 || maybe.statusCode === 404;
+}
+
 class CosmosProfileRepository implements ProfileRepository {
   constructor(private readonly client: CosmosClient, private readonly cfg: ContainerConfig) {}
 
@@ -103,6 +112,20 @@ class CosmosDietPlanRepository implements DietPlanRepository {
     const { resources } = await container.items.query<DietPlan>(query).fetchAll();
     return resources;
   }
+
+  async deleteById(userId: string, planId: string): Promise<boolean> {
+    const container = this.client.database(this.cfg.database).container(this.cfg.dietPlans);
+
+    try {
+      await container.item(planId, userId).delete();
+      return true;
+    } catch (error) {
+      if (isCosmosNotFoundError(error)) {
+        return false;
+      }
+      throw error;
+    }
+  }
 }
 
 class CosmosTrainingRepository implements TrainingRepository {
@@ -122,6 +145,20 @@ class CosmosTrainingRepository implements TrainingRepository {
     };
     const { resources } = await container.items.query<TrainingPlan>(query).fetchAll();
     return resources;
+  }
+
+  async deleteById(userId: string, planId: string): Promise<boolean> {
+    const container = this.client.database(this.cfg.database).container(this.cfg.training);
+
+    try {
+      await container.item(planId, userId).delete();
+      return true;
+    } catch (error) {
+      if (isCosmosNotFoundError(error)) {
+        return false;
+      }
+      throw error;
+    }
   }
 }
 

@@ -39,6 +39,8 @@ export default function HomePage(): JSX.Element {
   const [authSession, setAuthSession] = useState<AuthSession | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [pendingDeletion, setPendingDeletion] = useState<PendingDeletion | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const latestTrainingPlan = trainingPlans[0] ?? null;
 
@@ -156,6 +158,19 @@ export default function HomePage(): JSX.Element {
 
       {authSession ? (
       <section className="home-plan-list" aria-label="Lagrede planer">
+        {error ? <p className="message error">{error}</p> : null}
+        {actionSuccess ? <p className="message success">{actionSuccess}</p> : null}
+        {pendingDeletion ? (
+          <div className="message warning undo-banner">
+            <p>
+              Planen slettes permanent om 5 sekunder.
+            </p>
+            <button type="button" className="secondary" onClick={undoPendingDeletion}>
+              Angre sletting
+            </button>
+          </div>
+        ) : null}
+
         {isLoading ? (
           <>
             <article className="card home-skeleton-card" aria-hidden="true">
@@ -185,68 +200,131 @@ export default function HomePage(): JSX.Element {
               </div>
             </article>
           </>
-        ) : !latestTrainingPlan ? (
-          <article className="card">
-            <h2>Ingen treningsplan ennå</h2>
-            <p>Lag en plan i trening, så dukker den opp her.</p>
-            <Link className="home-plan-link" href="/trening">
-              Gå til trening
-            </Link>
+        ) : !authReady ? (
+          <article className="card empty-state">
+            <h2>Klargjører startsiden</h2>
+            <p>Vi sjekker innlogging og henter planene dine.</p>
           </article>
-        ) : (
-          <article key={latestTrainingPlan.id} className="card plan-item">
-            <h2>{latestTrainingPlan.planName}</h2>
-            <p className="tiny">
-              {latestTrainingPlan.weeklySessions} økter/uke · {latestTrainingPlan.trainingTypes.join(", ")}
-            </p>
-            <div className="week-plan-grid">
-              {latestTrainingPlan.weekPlan?.map((day) => (
-                <div key={`${latestTrainingPlan.id}-${day.day}`} className="day-preview">
-                  <p className="tiny strong">{day.day}</p>
-                  {day.exercises.length > 0 ? (
-                    <ul className="list compact">
-                      {day.exercises.map((exercise) => (
-                        <li key={`${latestTrainingPlan.id}-${day.day}-${exercise}`}>{exercise}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="tiny">Hvile</p>
-                  )}
-                </div>
-              ))}
+        ) : !authSession ? (
+          <article className="card empty-state">
+            <h2>Logg inn for å se planene dine</h2>
+            <p>Når du er logget inn, vises alle lagrede trenings- og kostholdplaner her.</p>
+            <div className="actions">
+              <Link href="/login" className="oauth-button">
+                Gå til logg inn
+              </Link>
+              <Link href="/register" className="oauth-button">
+                Registrer bruker
+              </Link>
             </div>
           </article>
-        )}
+        ) : (
+          <>
+            <article className="card">
+              <div className="section-head">
+                <h2>Treningsplaner</h2>
+                <Link href="/trening" className="section-link">
+                  Lag ny plan
+                </Link>
+              </div>
 
-        {!isLoading ? (
-          <article className="card plan-item">
-            <h2>Kostholdplaner</h2>
-            {dietPlans.length === 0 ? (
-              <p className="tiny">Ingen kostholdplaner lagret ennå. Lagre en plan i kosthold-seksjonen.</p>
-            ) : (
-              <ul className="list plans-list">
-                {dietPlans.map((plan) => (
-                  <li key={plan.id} className="plan-item">
-                    <p>
-                      <strong>{plan.planName}</strong>
-                      {plan.dailyCalories ? ` · ${plan.dailyCalories} kcal` : ""}
-                    </p>
-                    <p className="tiny">
-                      Kilde: {plan.sourceType === "manual" ? "Manuell" : "Fra forslag"}
-                      {plan.dietName ? ` · ${plan.dietName}` : ""}
-                    </p>
-                    {plan.notes ? <p className="tiny">Notat: {plan.notes}</p> : null}
-                    <ul className="list compact">
-                      {plan.meals.map((meal, index) => (
-                        <li key={`${plan.id}-${index}-${meal}`}>{meal}</li>
-                      ))}
-                    </ul>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </article>
-        ) : null}
+              {trainingPlans.length === 0 ? (
+                <div className="empty-state compact">
+                  <p>Du har ingen treningsplaner ennå.</p>
+                  <Link href="/trening" className="oauth-button">
+                    Opprett første treningsplan
+                  </Link>
+                </div>
+              ) : (
+                <div className="home-plan-list">
+                  {trainingPlans.map((plan) => (
+                    <article key={plan.id} className="plan-item">
+                      <div className="plan-item-head">
+                        <h3>{plan.planName}</h3>
+                        <button
+                          type="button"
+                          className="secondary"
+                          disabled={Boolean(pendingDeletion)}
+                          onClick={() => requestTrainingDelete(plan.id)}
+                        >
+                          Slett plan
+                        </button>
+                      </div>
+                      <p className="tiny">
+                        {plan.weeklySessions} økter/uke · {plan.trainingTypes.join(", ")}
+                      </p>
+                      <div className="week-plan-grid">
+                        {plan.weekPlan?.map((day) => (
+                          <div key={`${plan.id}-${day.day}`} className="day-preview">
+                            <p className="tiny strong">{day.day}</p>
+                            {day.exercises.length > 0 ? (
+                              <ul className="list compact">
+                                {day.exercises.map((exercise) => (
+                                  <li key={`${plan.id}-${day.day}-${exercise}`}>{exercise}</li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="tiny">Hvile</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </article>
+
+            <article className="card">
+              <div className="section-head">
+                <h2>Kostholdplaner</h2>
+                <Link href="/kalorier" className="section-link">
+                  Lag ny plan
+                </Link>
+              </div>
+
+              {dietPlans.length === 0 ? (
+                <div className="empty-state compact">
+                  <p>Du har ingen kostholdplaner ennå.</p>
+                  <Link href="/kalorier" className="oauth-button">
+                    Opprett første kostholdplan
+                  </Link>
+                </div>
+              ) : (
+                <ul className="list plans-list">
+                  {dietPlans.map((plan) => (
+                    <li key={plan.id} className="plan-item">
+                      <div className="plan-item-head">
+                        <p>
+                          <strong>{plan.planName}</strong>
+                          {plan.dailyCalories ? ` · ${plan.dailyCalories} kcal` : ""}
+                        </p>
+                        <button
+                          type="button"
+                          className="secondary"
+                          disabled={Boolean(pendingDeletion)}
+                          onClick={() => requestDietDelete(plan.id)}
+                        >
+                          Slett plan
+                        </button>
+                      </div>
+                      <p className="tiny">
+                        Kilde: {plan.sourceType === "manual" ? "Manuell" : "Fra forslag"}
+                        {plan.dietName ? ` · ${plan.dietName}` : ""}
+                      </p>
+                      {plan.notes ? <p className="tiny">Notat: {plan.notes}</p> : null}
+                      <ul className="list compact">
+                        {plan.meals.map((meal, index) => (
+                          <li key={`${plan.id}-${index}-${meal}`}>{meal}</li>
+                        ))}
+                      </ul>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </article>
+          </>
+        )}
       </section>
       ) : null}
 

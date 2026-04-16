@@ -25,11 +25,13 @@ export interface DietRepository {
 export interface DietPlanRepository {
   create(plan: DietPlan): Promise<DietPlan>;
   listByUserId(userId: string): Promise<DietPlan[]>;
+  deleteById(userId: string, planId: string): Promise<boolean>;
 }
 
 export interface TrainingRepository {
   create(plan: TrainingPlan): Promise<TrainingPlan>;
   listByUserId(userId: string): Promise<TrainingPlan[]>;
+  deleteById(userId: string, planId: string): Promise<boolean>;
 }
 
 export interface StorageProvider {

@@ -40,6 +40,49 @@ const initialCalorieInput: CalorieInput = {
   activityLevel: "medium"
 };
 
+type ManualMealDraft = {
+  id: string;
+  name: string;
+  details: string;
+};
+
+const defaultMealNames = ["Frokost", "Lunsj", "Middag", "Kveldsmat", "Mellommåltid 1", "Mellommåltid 2"];
+
+function createManualMealDraft(index: number): ManualMealDraft {
+  return {
+    id: `${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`,
+    name: defaultMealNames[index] ?? `Måltid ${index + 1}`,
+    details: ""
+  };
+}
+
+function buildManualMealDrafts(count: number): ManualMealDraft[] {
+  return Array.from({ length: count }, (_, index) => createManualMealDraft(index));
+}
+
+function formatManualMeals(meals: ManualMealDraft[]): string[] {
+  return meals
+    .map((meal) => {
+      const name = meal.name.trim();
+      const details = meal.details.trim();
+
+      if (!name && !details) {
+        return null;
+      }
+
+      if (!name) {
+        return details;
+      }
+
+      if (!details) {
+        return name;
+      }
+
+      return `${name}: ${details}`;
+    })
+    .filter((meal): meal is string => Boolean(meal));
+}
+
 type TrainingProgramTemplate = {
   id: string;
   name: string;
@@ -48,6 +91,11 @@ type TrainingProgramTemplate = {
   trainingTypes: string[];
   weeklySessions: number;
   weekPlan: TrainingDayPlan[];
+};
+
+type PendingTrainingDeletion = {
+  index: number;
+  plan: TrainingPlan;
 };
 
 const trainingProgramTemplates: TrainingProgramTemplate[] = [
@@ -147,7 +195,7 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
   const [isSavingDietPlan, setIsSavingDietPlan] = useState(false);
   const [dietPlanName, setDietPlanName] = useState("Min kostholdplan");
   const [dietPlanNotes, setDietPlanNotes] = useState("");
-  const [manualMealsText, setManualMealsText] = useState("");
+  const [manualMeals, setManualMeals] = useState<ManualMealDraft[]>(() => buildManualMealDrafts(4));
   const [mealCount, setMealCount] = useState(4);
   const [dietPlans, setDietPlans] = useState<DietPlan[]>([]);
 
@@ -159,6 +207,7 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
   const [trainingError, setTrainingError] = useState<string | null>(null);
   const [trainingSuccess, setTrainingSuccess] = useState<string | null>(null);
   const [isSavingPlan, setIsSavingPlan] = useState(false);
+  const [pendingTrainingDeletion, setPendingTrainingDeletion] = useState<PendingTrainingDeletion | null>(null);
   const [replacePlansOnNextSave, setReplacePlansOnNextSave] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [activeDay, setActiveDay] = useState(weekDays[0]);
@@ -229,6 +278,22 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
 
     return Math.round(nutritionTargets.calories / mealCount);
   }, [mealCount, nutritionTargets]);
+
+  const manualMealPreview = useMemo(() => formatManualMeals(manualMeals), [manualMeals]);
+
+  useEffect(() => {
+    setManualMeals((current) => {
+      const trimmed = current.slice(0, mealCount);
+
+      if (trimmed.length === mealCount) {
+        return current;
+      }
+
+      const missingCount = mealCount - trimmed.length;
+      const appended = Array.from({ length: missingCount }, (_, index) => createManualMealDraft(trimmed.length + index));
+      return [...trimmed, ...appended];
+    });
+  }, [mealCount]);
 
   const grocerySuggestions = useMemo(() => {
     if (!dietSuggestion) {
@@ -382,10 +447,7 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
 
   async function saveManualDietPlan(): Promise<void> {
     try {
-      const meals = manualMealsText
-        .split(/\r?\n/)
-        .map((item) => item.trim())
-        .filter(Boolean);
+      const meals = formatManualMeals(manualMeals);
 
       if (!dietPlanName.trim()) {
         throw new Error("Skriv inn et navn på kostholdplanen");
@@ -417,12 +479,70 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
 
       setDietPlanSuccess(`Lagret manuell kostholdplan: ${response.plan.planName}`);
       setDietPlans((current) => [response.plan, ...current]);
-      setManualMealsText("");
+      setManualMeals(buildManualMealDrafts(mealCount));
     } catch (error) {
       setDietError(error instanceof Error ? error.message : "Kunne ikke lagre kostholdplan");
     } finally {
       setIsSavingDietPlan(false);
     }
+  }
+
+  function updateManualMeal(mealId: string, field: "name" | "details", value: string): void {
+    setManualMeals((current) =>
+      current.map((meal) => {
+        if (meal.id !== mealId) {
+          return meal;
+        }
+
+        return {
+          ...meal,
+          [field]: value
+        };
+      })
+    );
+  }
+
+  function resetManualMeals(): void {
+    setManualMeals(buildManualMealDrafts(mealCount));
+  }
+
+  function fillManualMealsFromSuggestion(): void {
+    if (dietSuggestion?.meals.length) {
+      setManualMeals((current) =>
+        current.map((meal, index) => {
+          const suggestionMeal = dietSuggestion.meals[index];
+          if (!suggestionMeal) {
+            return meal;
+          }
+
+          const [suggestedName, ...rest] = suggestionMeal.split(":");
+          if (rest.length === 0) {
+            return {
+              ...meal,
+              details: suggestionMeal.trim()
+            };
+          }
+
+          return {
+            ...meal,
+            name: suggestedName.trim() || meal.name,
+            details: rest.join(":").trim()
+          };
+        })
+      );
+      return;
+    }
+
+    if (!caloriesPerMeal) {
+      return;
+    }
+
+    setManualMeals((current) =>
+      current.map((meal) => ({
+        ...meal,
+        details: `Mål: ca. ${caloriesPerMeal} kcal` 
+      }))
+    );
   }
 
   async function loadTrainingPlans(): Promise<void> {
@@ -695,17 +815,56 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
 
           <div className="message">
             <p className="tiny strong">Eller lag manuell kostholdplan</p>
-            <label>
-              Måltider (ett per linje)
-              <textarea
-                value={manualMealsText}
-                onChange={(event) => setManualMealsText(event.target.value)}
-                placeholder={"Frokost: Havregrøt\nLunsj: Kyllingsalat\nMiddag: Laks og potet"}
-              />
-            </label>
-            <button type="button" className="secondary" disabled={isSavingDietPlan} onClick={() => void saveManualDietPlan()}>
-              {isSavingDietPlan ? "Lagrer kostholdplan..." : "Lagre manuell plan"}
-            </button>
+            <p className="tiny">
+              Bygg spiseplanen måltid for måltid. {caloriesPerMeal ? `Mål per måltid: ca. ${caloriesPerMeal} kcal.` : "Kjør kaloriutregning for kcal-mål per måltid."}
+            </p>
+
+            <div className="manual-meal-grid">
+              {manualMeals.map((meal, index) => (
+                <div key={meal.id} className="manual-meal-card">
+                  <p className="tiny strong">Måltid {index + 1}</p>
+                  <label>
+                    Navn
+                    <input
+                      value={meal.name}
+                      onChange={(event) => updateManualMeal(meal.id, "name", event.target.value)}
+                      placeholder={`Måltid ${index + 1}`}
+                    />
+                  </label>
+                  <label>
+                    Innhold
+                    <textarea
+                      value={meal.details}
+                      onChange={(event) => updateManualMeal(meal.id, "details", event.target.value)}
+                      placeholder="For eksempel: Havregrøt med bær og yoghurt"
+                    />
+                  </label>
+                </div>
+              ))}
+            </div>
+
+            <div className="actions manual-meal-actions">
+              <button type="button" className="secondary" onClick={fillManualMealsFromSuggestion}>
+                Fyll inn forslag
+              </button>
+              <button type="button" className="secondary" onClick={resetManualMeals}>
+                Tøm måltider
+              </button>
+              <button type="button" disabled={isSavingDietPlan} onClick={() => void saveManualDietPlan()}>
+                {isSavingDietPlan ? "Lagrer kostholdplan..." : "Lagre manuell plan"}
+              </button>
+            </div>
+
+            {manualMealPreview.length > 0 ? (
+              <>
+                <p className="tiny strong">Plan-preview</p>
+                <ul className="list compact">
+                  {manualMealPreview.map((meal) => (
+                    <li key={meal}>{meal}</li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
           </div>
 
           {dietError ? <p className="message error">{dietError}</p> : null}
@@ -836,6 +995,14 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
           </div>
           {trainingError ? <p className="message error">{trainingError}</p> : null}
           {trainingSuccess ? <p className="message success">{trainingSuccess}</p> : null}
+          {pendingTrainingDeletion ? (
+            <div className="message warning undo-banner">
+              <p>Treningsplanen slettes permanent om 5 sekunder.</p>
+              <button type="button" className="secondary" onClick={undoTrainingDeletion}>
+                Angre sletting
+              </button>
+            </div>
+          ) : null}
 
           {trainingSuggestions.length > 0 ? (
             <>
@@ -854,9 +1021,19 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
               <ul className="list plans-list">
                 {trainingPlans.map((plan) => (
                   <li key={plan.id} className="plan-item">
-                    <p>
-                      <strong>{plan.planName}</strong> - {plan.weeklySessions} økter/uke ({plan.trainingTypes.join(", ")})
-                    </p>
+                    <div className="plan-item-head">
+                      <p>
+                        <strong>{plan.planName}</strong> - {plan.weeklySessions} økter/uke ({plan.trainingTypes.join(", ")})
+                      </p>
+                      <button
+                        type="button"
+                        className="secondary"
+                        disabled={Boolean(pendingTrainingDeletion)}
+                        onClick={() => requestTrainingDeletion(plan.id)}
+                      >
+                        Slett plan
+                      </button>
+                    </div>
                     {plan.weekPlan?.length ? (
                       <div className="week-plan-grid">
                         {plan.weekPlan.map((day) => (

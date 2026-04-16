@@ -223,9 +223,6 @@ export default function HomePage(): JSX.Element {
             <article className="card">
               <div className="section-head">
                 <h2>Treningsplaner</h2>
-                <Link href="/trening" className="section-link">
-                  Lag ny plan
-                </Link>
               </div>
 
               {trainingPlans.length === 0 ? (
@@ -278,9 +275,6 @@ export default function HomePage(): JSX.Element {
             <article className="card">
               <div className="section-head">
                 <h2>Kostholdplaner</h2>
-                <Link href="/kalorier" className="section-link">
-                  Lag ny plan
-                </Link>
               </div>
 
               {dietPlans.length === 0 ? (

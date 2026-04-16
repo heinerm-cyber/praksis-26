@@ -71,3 +71,4 @@ description: "Use when: implementing pump.no features, changing auth/storage/fal
 - 2026-04-16: Gamification er nå samlet kun på egen leaderboard-side og vises ikke lenger inne i kosthold-/treningsdashboardet.
 - 2026-04-16: Bruker kan nå slette lagrede treningsplaner og kostholdplaner via web-UI; API støtter DELETE-endepunkter med userId-skoping for både memory- og cosmos-adapter.
 - 2026-04-16: Sletting i web-UI bruker nå 5 sekunders angre-vindu før permanent DELETE-kall; tom-tilstander har tydelige CTA-er og visuell rytme er strammet med bedre seksjonsstruktur, spacing og knappehierarki.
+- 2026-04-16: Startsiden viser ikke lenger seksjonsknappene "Lag ny plan" i trenings- og kostholdboksene; opprettelse skjer via undersidene eller tom-tilstandens opprett-knapper.

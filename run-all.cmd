@@ -12,7 +12,7 @@ if exist "package-lock.json" (
 		if errorlevel 1 exit /b 1
 	) else (
 		if exist "%NODE_EXE%" (
-			"%NODE_EXE%" -e "const pkg='@esbuild/'+process.platform+'-'+process.arch;try{require.resolve(pkg);process.exit(0);}catch{process.exit(1);}"
+			"%NODE_EXE%" -e "const fs=require('node:fs');const path=require('node:path');const packagePath=path.join(process.cwd(),'node_modules','@esbuild',process.platform+'-'+process.arch,'package.json');process.exit(fs.existsSync(packagePath)?0:1);"
 			if errorlevel 1 (
 				echo Detected node_modules from another platform. Reinstalling dependencies...
 				call npm ci

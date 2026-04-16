@@ -1,11 +1,13 @@
 import type {
   CalorieSession,
+  DietPlan,
   DietSuggestion,
   Profile,
   TrainingPlan
 } from "../domain/models.js";
 import type {
   CalorieRepository,
+  DietPlanRepository,
   DietRepository,
   ProfileRepository,
   StorageProvider,
@@ -53,6 +55,20 @@ class MemoryDietRepository implements DietRepository {
   }
 }
 
+class MemoryDietPlanRepository implements DietPlanRepository {
+  private readonly map = new Map<string, DietPlan[]>();
+
+  async create(plan: DietPlan): Promise<DietPlan> {
+    const current = this.map.get(plan.userId) ?? [];
+    this.map.set(plan.userId, [plan, ...current]);
+    return plan;
+  }
+
+  async listByUserId(userId: string): Promise<DietPlan[]> {
+    return this.map.get(userId) ?? [];
+  }
+}
+
 class MemoryTrainingRepository implements TrainingRepository {
   private readonly map = new Map<string, TrainingPlan[]>();
 
@@ -73,6 +89,7 @@ export function createMemoryProvider(): StorageProvider {
     profile: new MemoryProfileRepository(),
     calories: new MemoryCalorieRepository(),
     diets: new MemoryDietRepository(),
+    dietPlans: new MemoryDietPlanRepository(),
     training: new MemoryTrainingRepository()
   };
 }

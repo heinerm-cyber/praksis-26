@@ -5,18 +5,21 @@ type ApiErrorBody = {
 export async function requestJson<T>(
   baseUrl: string,
   path: string,
-  init: RequestInit,
-  userId: string
+  options: RequestInit,
+  userId?: string
 ): Promise<T> {
-  const headers = new Headers(init.headers);
+  const headers = new Headers(options.headers ?? {});
 
-  headers.set("x-user-id", userId);
-  if (!headers.has("content-type") && init.body) {
+  if (!headers.has("content-type") && options.body) {
     headers.set("content-type", "application/json");
   }
 
+  if (userId) {
+    headers.set("x-user-id", userId);
+  }
+
   const response = await fetch(`${baseUrl}${path}`, {
-    ...init,
+    ...options,
     headers
   });
 
@@ -28,7 +31,7 @@ export async function requestJson<T>(
     const message =
       parsed && typeof parsed === "object" && "error" in parsed && typeof parsed.error === "string"
         ? parsed.error
-        : `Request feilet (${response.status})`;
+        : "Foresporsel feilet";
 
     throw new Error(message);
   }

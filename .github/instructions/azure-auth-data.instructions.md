@@ -49,4 +49,21 @@ applyTo: "{apps/api/src/**/*.ts,README.md,.github/copilot-instructions.md}"
 - 2026-04-09: Treningsplanleggeren har nå reset-knapp som nullstiller planfelter og ukeplan for rask ny planlegging.
 - 2026-04-09: Reset i treningsplanleggeren nullstiller også ukeplanutkast og rydder treningsplan-visningen i UI for ny planstart.
 - 2026-04-09: Etter reset i treningsplanleggeren erstatter neste lagring planlisten i UI slik at bare den nye planen vises.
+- 2026-04-14: Web UI color palette switched to Nordisk Ren theme (clean blue/neutral tones) across global styles.
+- 2026-04-14: Hero heading pump.no updated to a styled wordmark with badge and improved typography for better visual identity.
+- 2026-04-14: Treningsplanleggeren har nå ferdige programmaler (nybegynner, styrke, hypertrofi, fettforbrenning) som kan velges og tilpasses manuelt før lagring.
+- 2026-04-14: Startsiden er nå kategoribasert med egne undersider for kalorier, kosthold, trening og en separat oversiktsside.
+- 2026-04-14: Kalori og kosthold er slått sammen til én kategori med forbedret kostholdsverdi gjennom daglige makromål, væske/fiber-mål, måltidsfordeling og handlelisteforslag.
+- 2026-04-14: Oversiktssiden er fjernet for enklere navigasjon; startside og toppmeny viser nå kun kjernekategoriene kalori/kosthold og trening.
+- 2026-04-14: Web UI has a built-in training-themed SVG background illustration to strengthen visual identity while preserving readability.
+- 2026-04-14: Startsiden viser nå kun brukerens lagrede treningsplaner (eller tom-tilstand) i stedet for kategorikort.
+- 2026-04-14: UI feedback improved with loading states, success messages, and refresh action for homepage plans plus action-state buttons in dashboard.
+- 2026-04-14: Startsiden viser nå skeleton-kort under lasting av planer for bedre opplevd ytelse og mer profesjonell feedback.
+- 2026-04-14: Startsiden viser nå kun siste lagrede plan (ikke flere planer samtidig) for en enklere visning etter lagring.
+- 2026-04-14: Kostholdplan kan nå lagres eksplisitt i API som enten manuell plan eller plan opprettet fra kostholdforslag, fortsatt brukerbundet og kompatibelt med memory/cosmos adaptere.
+- 2026-04-14: Startsiden viser nå siste treningsplan øverst og flere lagrede kostholdplaner under treningsdelen.
+- 2026-04-14: Gamification runde 1 er implementert som frontend-beregnet streak + XP/level + personlig leaderboard, vist på dashboard og startside uten ny backend-persistens.
+- 2026-04-14: Lokal login/register-flyt er gjenopprettet i web med in-memory brukerstore, egne /login og /register sider, samt brukerspesifikk datalasting i dashboard/startside.
+- 2026-04-14: Toppnavigasjon er delt i hovedfaner og separat auth-seksjon; login/register er flyttet bort fra hovedfanene.
+- 2026-04-14: Egen profilfane (/profil) og egen leaderboard-fane (/leaderboard) er lagt til i web.
 - 2026-04-16: run-all.cmd starter nå run-api.cmd og run-web.cmd direkte (uten npm-run-all) og kjører npm ci automatisk når plattformspesifikk esbuild-mismatch oppdages.

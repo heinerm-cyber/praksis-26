@@ -526,35 +526,8 @@ button:disabled {
   list-style: none;
 }
 
-.template-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 0.55rem;
-  margin: 0.5rem 0 0.8rem;
-}
-
-@media (min-width: 760px) {
-  .template-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-.template-card {
-  text-align: left;
-  display: grid;
-  gap: 0.25rem;
-  padding: 0.7rem;
-  border-radius: 12px;
-}
-
-.template-card.active {
-  color: #fff;
-  border-color: transparent;
-  background: linear-gradient(135deg, var(--brand), var(--brand-dark));
-}
-
-.template-card.active .tiny {
-  opacity: 0.95;
+.template-description {
+  margin-top: 0.35rem;
 }
 
 .plan-item {

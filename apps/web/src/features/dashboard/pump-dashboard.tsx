@@ -234,6 +234,11 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
     [activeDay, weekPlan]
   );
 
+  const selectedTemplate = useMemo(
+    () => trainingProgramTemplates.find((template) => template.id === selectedTemplateId) ?? null,
+    [selectedTemplateId]
+  );
+
   const exercisesForActiveDay = useMemo(() => {
     if (!activeDayPlan) {
       return availableExercises;
@@ -876,19 +881,38 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
         <article className="card span-6">
           <h2>Treningsplaner</h2>
           <p className="tiny">Velg et ferdig program og tilpass det videre:</p>
-          <div className="template-grid">
-            {trainingProgramTemplates.map((template) => (
-              <button
-                key={template.id}
-                type="button"
-                className={`secondary template-card ${selectedTemplateId === template.id ? "active" : ""}`}
-                onClick={() => applyTrainingProgram(template)}
-              >
-                <span className="strong">{template.name}</span>
-                <span className="tiny">{template.description}</span>
-              </button>
-            ))}
-          </div>
+          <label>
+            Ferdig program
+            <select
+              value={selectedTemplateId ?? ""}
+              onChange={(event) => {
+                const templateId = event.target.value;
+                if (!templateId) {
+                  setSelectedTemplateId(null);
+                  return;
+                }
+
+                const template = trainingProgramTemplates.find((item) => item.id === templateId);
+                if (template) {
+                  applyTrainingProgram(template);
+                }
+              }}
+            >
+              <option value="">Velg et ferdig program</option>
+              {trainingProgramTemplates.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {selectedTemplate ? (
+            <div className="message template-description">
+              <p className="tiny strong">Beskrivelse</p>
+              <p className="tiny">{selectedTemplate.description}</p>
+            </div>
+          ) : null}
 
           <label>
             Plan-navn
@@ -906,84 +930,94 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
           </label>
           <p className="tiny">Planlagte dager med økter: {plannedSessionCount} av 7</p>
 
-          <p className="tiny">Velg muskelgrupper for planen:</p>
-          <div className="row two">
-            {predefinedTrainingTypes.map((type) => (
-              <label key={type} className="checkbox-inline">
-                <input type="checkbox" checked={selectedTypes.includes(type)} onChange={() => toggleTrainingType(type)} />
-                {type}
-              </label>
-            ))}
-          </div>
+          <details className="message">
+            <summary className="tiny strong">
+              Velg muskelgrupper for planen ({selectedTypes.length} valgt)
+            </summary>
+            <div className="row two">
+              {predefinedTrainingTypes.map((type) => (
+                <label key={type} className="checkbox-inline">
+                  <input type="checkbox" checked={selectedTypes.includes(type)} onChange={() => toggleTrainingType(type)} />
+                  {type}
+                </label>
+              ))}
+            </div>
+          </details>
 
           <p className="tiny">Bygg ukeplan manuelt - velg dag og klikk øvelser for muskelgruppen:</p>
-          <div className="day-tabs" role="tablist" aria-label="Velg dag i ukeplan">
-            {weekDays.map((day) => (
-              <button
-                key={day}
-                type="button"
-                className={`secondary day-tab ${activeDay === day ? "active" : ""}`}
-                onClick={() => setActiveDay(day)}
-              >
-                {day}
-              </button>
-            ))}
-          </div>
+          <details className="message">
+            <summary className="tiny strong">Velg dager i ukeplan</summary>
+            <div className="day-tabs" role="tablist" aria-label="Velg dag i ukeplan">
+              {weekDays.map((day) => (
+                <button
+                  key={day}
+                  type="button"
+                  className={`secondary day-tab ${activeDay === day ? "active" : ""}`}
+                  onClick={() => setActiveDay(day)}
+                >
+                  {day}
+                </button>
+              ))}
+            </div>
 
-          {activeDayPlan ? (
-            <div className="message">
-              <p className="tiny strong">{activeDayPlan.day}</p>
-              <div className="exercise-grid">
-                {exercisesForActiveDay.map((exercise) => {
-                  const selected = activeDayPlan.exercises.includes(exercise);
-                  return (
-                    <button
-                      key={exercise}
-                      type="button"
-                      className={`secondary exercise-chip ${selected ? "selected" : ""}`}
-                      onClick={() => toggleExercise(activeDayPlan.day, exercise)}
-                    >
-                      {exercise}
-                    </button>
-                  );
-                })}
-              </div>
+            {activeDayPlan ? (
+              <div className="message">
+                <p className="tiny strong">{activeDayPlan.day}</p>
+                <details className="message">
+                  <summary className="tiny strong">Velg treningstyper/øvelser for {activeDayPlan.day}</summary>
+                  <div className="exercise-grid">
+                    {exercisesForActiveDay.map((exercise) => {
+                      const selected = activeDayPlan.exercises.includes(exercise);
+                      return (
+                        <button
+                          key={exercise}
+                          type="button"
+                          className={`secondary exercise-chip ${selected ? "selected" : ""}`}
+                          onClick={() => toggleExercise(activeDayPlan.day, exercise)}
+                        >
+                          {exercise}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </details>
 
-              <div className="row two">
+                <div className="row two">
+                  <label>
+                    Legg til egen øvelse
+                    <input
+                      value={customExercise}
+                      onChange={(event) => setCustomExercise(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          addCustomExercise(activeDayPlan.day);
+                        }
+                      }}
+                      placeholder="For eksempel: Hip thrust"
+                    />
+                  </label>
+                  <button type="button" className="secondary" onClick={() => addCustomExercise(activeDayPlan.day)}>
+                    Legg til øvelse
+                  </button>
+                </div>
+
                 <label>
-                  Legg til egen øvelse
-                  <input
-                    value={customExercise}
-                    onChange={(event) => setCustomExercise(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        addCustomExercise(activeDayPlan.day);
-                      }
-                    }}
-                    placeholder="For eksempel: Hip thrust"
+                  Notater for {activeDayPlan.day}
+                  <textarea
+                    value={activeDayPlan.notes ?? ""}
+                    onChange={(event) =>
+                      updateDayPlan(activeDayPlan.day, (current) => ({
+                        ...current,
+                        notes: event.target.value
+                      }))
+                    }
+                    placeholder="Intensitet, varighet eller fokus"
                   />
                 </label>
-                <button type="button" className="secondary" onClick={() => addCustomExercise(activeDayPlan.day)}>
-                  Legg til øvelse
-                </button>
               </div>
-
-              <label>
-                Notater for {activeDayPlan.day}
-                <textarea
-                  value={activeDayPlan.notes ?? ""}
-                  onChange={(event) =>
-                    updateDayPlan(activeDayPlan.day, (current) => ({
-                      ...current,
-                      notes: event.target.value
-                    }))
-                  }
-                  placeholder="Intensitet, varighet eller fokus"
-                />
-              </label>
-            </div>
-          ) : null}
+            ) : null}
+          </details>
 
           <div className="actions">
             <button disabled={isSavingPlan} onClick={() => void createTrainingPlan()}>

@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { signOut } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
 import { requestJson } from "../features/common/api";
-import { calculateGamification } from "../features/common/gamification";
 import { clearAuthSession, getAuthSession, type AuthSession } from "../features/auth/session";
 
 type PlanPreview = {
@@ -29,11 +29,6 @@ type DietPlanPreview = {
   meals: string[];
 };
 
-type CalorieSessionPreview = {
-  id: string;
-  createdAt: string;
-};
-
 export default function HomePage(): JSX.Element {
   const apiBaseUrl = useMemo(
     () => process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000",
@@ -41,27 +36,16 @@ export default function HomePage(): JSX.Element {
   );
   const [trainingPlans, setTrainingPlans] = useState<PlanPreview[]>([]);
   const [dietPlans, setDietPlans] = useState<DietPlanPreview[]>([]);
-  const [calorieSessions, setCalorieSessions] = useState<CalorieSessionPreview[]>([]);
   const [authSession, setAuthSession] = useState<AuthSession | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const latestTrainingPlan = trainingPlans[0] ?? null;
-  const gamification = useMemo(
-    () =>
-      calculateGamification({
-        trainingPlans,
-        dietPlans,
-        calorieSessions
-      }),
-    [trainingPlans, dietPlans, calorieSessions]
-  );
 
   async function loadPlans(): Promise<void> {
     if (!authSession) {
       setTrainingPlans([]);
       setDietPlans([]);
-      setCalorieSessions([]);
       setIsLoading(false);
       return;
     }
@@ -69,32 +53,65 @@ export default function HomePage(): JSX.Element {
     try {
       setIsLoading(true);
       setError(null);
-      const [trainingResponse, dietResponse, calorieResponse] = await Promise.all([
+      const [trainingResponse, dietResponse] = await Promise.all([
         requestJson<{ plans: PlanPreview[] }>(apiBaseUrl, "/api/training/plans", { method: "GET" }, authSession.userId),
-        requestJson<{ plans: DietPlanPreview[] }>(apiBaseUrl, "/api/diets/plans", { method: "GET" }, authSession.userId),
-        requestJson<{ sessions: CalorieSessionPreview[] }>(
-          apiBaseUrl,
-          "/api/calories/history",
-          { method: "GET" },
-          authSession.userId
-        )
+        requestJson<{ plans: DietPlanPreview[] }>(apiBaseUrl, "/api/diets/plans", { method: "GET" }, authSession.userId)
       ]);
       setTrainingPlans(trainingResponse.plans);
       setDietPlans(dietResponse.plans);
-      setCalorieSessions(calorieResponse.sessions);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Kunne ikke hente planer");
       setTrainingPlans([]);
       setDietPlans([]);
-      setCalorieSessions([]);
     } finally {
       setIsLoading(false);
     }
   }
 
   useEffect(() => {
-    setAuthSession(getAuthSession());
-    setAuthReady(true);
+    async function resolveSession(): Promise<void> {
+      const localSession = getAuthSession();
+      if (localSession) {
+        setAuthSession(localSession);
+        setAuthReady(true);
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/auth/session", { cache: "no-store" });
+        if (!response.ok) {
+          setAuthReady(true);
+          return;
+        }
+
+        const payload = (await response.json()) as {
+          user?: {
+            email?: string | null;
+            name?: string | null;
+            sub?: string | null;
+          };
+        };
+
+        if (!payload.user?.email || !payload.user.name) {
+          setAuthReady(true);
+          return;
+        }
+
+        setAuthSession({
+          userId: payload.user.sub ?? payload.user.email,
+          email: payload.user.email,
+          name: payload.user.name,
+          loggedInAt: new Date().toISOString(),
+          provider: "google"
+        });
+      } catch {
+        // Keep home unauthenticated if OAuth lookup fails.
+      } finally {
+        setAuthReady(true);
+      }
+    }
+
+    void resolveSession();
   }, []);
 
   useEffect(() => {
@@ -104,35 +121,17 @@ export default function HomePage(): JSX.Element {
     void loadPlans();
   }, [apiBaseUrl, authSession, authReady]);
 
-  function logout(): void {
+  async function logout(): Promise<void> {
     clearAuthSession();
     setAuthSession(null);
     setError(null);
+    await signOut({ callbackUrl: "/login", redirect: true });
   }
 
   return (
     <main>
-      <section className="hero home-hero">
-        <h1 className="brand-mark" aria-label="pump.no">
-          <span className="brand-pill">Mine lagrede planer</span>
-          <span className="brand-word">pump</span>
-          <span className="brand-dot">.</span>
-          <span className="brand-word">no</span>
-        </h1>
-        <p>Her ser du siste treningsplan og alle lagrede kostholdplaner.</p>
-        {authSession ? (
-          <>
-            <p className="tiny">Innlogget som: {authSession.name}</p>
-            <div className="actions">
-              <button className="secondary home-refresh-button" onClick={() => void loadPlans()} disabled={isLoading}>
-                {isLoading ? "Oppdaterer..." : "Oppdater planer"}
-              </button>
-              <button type="button" className="secondary" onClick={logout}>
-                Logg ut
-              </button>
-            </div>
-          </>
-        ) : (
+      {!authSession ? (
+        <article className="card login-card">
           <div className="actions">
             <Link href="/login" className="oauth-button">
               Gå til logg inn
@@ -141,8 +140,8 @@ export default function HomePage(): JSX.Element {
               Registrer bruker
             </Link>
           </div>
-        )}
-      </section>
+        </article>
+      ) : null}
 
       {error ? <p className="message error">{error}</p> : null}
       {!authReady ? <p className="message">Sjekker innlogging...</p> : null}
@@ -153,44 +152,6 @@ export default function HomePage(): JSX.Element {
           <h2>Logg inn for å se dine planer</h2>
           <p>Login og registrering er aktiv igjen. Velg en av knappene over for å fortsette.</p>
         </article>
-      ) : null}
-
-      {!isLoading && authSession ? (
-        <section className="home-gamification-grid" aria-label="Gamification-status">
-          <article className="card gamification-card">
-            <h2>Din utvikling</h2>
-            <div className="gamification-pill-row">
-              <span className="status gamification">🔥 Streak: {gamification.currentStreak} dager</span>
-              <span className="status gamification">⭐ Level {gamification.level}</span>
-              <span className="status gamification">🏆 {gamification.totalPoints} XP totalt</span>
-            </div>
-            <div className="message">
-              <p className="tiny strong">Fremdrift mot neste nivå</p>
-              <p className="tiny">
-                {gamification.pointsIntoLevel} / {gamification.levelSize} XP · {gamification.pointsToNextLevel} XP gjenstår
-              </p>
-              <div className="xp-track" aria-label="XP-fremdrift startside">
-                <div className="xp-fill" style={{ width: `${gamification.progressPercent}%` }} />
-              </div>
-            </div>
-          </article>
-
-          <article className="card gamification-card">
-            <h2>Personlig leaderboard</h2>
-            {gamification.leaderboard.length === 0 ? (
-              <p className="tiny">Ingen rangerte uker ennå. Lagre en plan for å bygge poeng.</p>
-            ) : (
-              <ol className="list leaderboard-list">
-                {gamification.leaderboard.map((entry) => (
-                  <li key={entry.weekKey} className="leaderboard-item">
-                    <span>{entry.label}</span>
-                    <strong>{entry.points} XP</strong>
-                  </li>
-                ))}
-              </ol>
-            )}
-          </article>
-        </section>
       ) : null}
 
       {authSession ? (
@@ -287,6 +248,19 @@ export default function HomePage(): JSX.Element {
           </article>
         ) : null}
       </section>
+      ) : null}
+
+      {authSession ? (
+        <article className="card login-card">
+          <div className="actions">
+            <button className="secondary home-refresh-button" onClick={() => void loadPlans()} disabled={isLoading}>
+              {isLoading ? "Oppdaterer..." : "Oppdater planer"}
+            </button>
+            <button type="button" className="secondary" onClick={logout}>
+              Logg ut
+            </button>
+          </div>
+        </article>
       ) : null}
     </main>
   );

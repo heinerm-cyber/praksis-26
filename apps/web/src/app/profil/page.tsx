@@ -1,27 +1,19 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { signOut } from "next-auth/react";
 import { AuthGate } from "../../features/auth/auth-gate";
 import { clearAuthSession } from "../../features/auth/session";
 
 export default function ProfilePage(): JSX.Element {
-  const router = useRouter();
-
-  function logout(): void {
+  async function logout(): Promise<void> {
     clearAuthSession();
-    router.push("/login");
-    router.refresh();
+    await signOut({ callbackUrl: "/login", redirect: true });
   }
 
   return (
     <AuthGate>
       {(session) => (
         <main>
-          <section className="hero">
-            <h1>Profil</h1>
-            <p>Her ser du informasjon om brukeren som er logget inn.</p>
-          </section>
-
           <article className="card login-card">
             <h2>Min bruker</h2>
             <p><strong>Navn:</strong> {session.name}</p>
@@ -29,7 +21,7 @@ export default function ProfilePage(): JSX.Element {
             <p><strong>Bruker-ID:</strong> {session.userId}</p>
             <p className="tiny">Innlogget: {new Date(session.loggedInAt).toLocaleString("nb-NO")}</p>
             <div className="actions">
-              <button type="button" className="secondary" onClick={logout}>
+              <button type="button" className="secondary" onClick={() => void logout()}>
                 Logg ut
               </button>
             </div>

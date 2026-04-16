@@ -67,3 +67,7 @@ applyTo: "{apps/api/src/**/*.ts,README.md,.github/copilot-instructions.md}"
 - 2026-04-14: Toppnavigasjon er delt i hovedfaner og separat auth-seksjon; login/register er flyttet bort fra hovedfanene.
 - 2026-04-14: Egen profilfane (/profil) og egen leaderboard-fane (/leaderboard) er lagt til i web.
 - 2026-04-16: run-all.cmd starter nå run-api.cmd og run-web.cmd direkte (uten npm-run-all) og kjører npm ci automatisk når plattformspesifikk esbuild-mismatch oppdages.
+- 2026-04-16: Login-siden har nå Sign-in with Google (NextAuth Google Provider) med ikon, samtidig som lokal e-post/passord-login beholdes i samme flyt.
+- 2026-04-16: Web bruker nå cookie-basert NextAuth for både lokal credentials-login og Google, med middleware som sender uinnloggede brukere til /login ved oppstart og innloggede brukere direkte til startside.
+- 2026-04-16: Gamification og leaderboard er fjernet fra web (UI, navigasjon og beregninger), inkludert egen leaderboard-side.
+- 2026-04-16: Fallback-/lagringsmodus-boksen er fjernet fra web UI, inkludert visning av "Lagringsmodus" og memory-fallback melding på dashboardsider.

@@ -2,22 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { requestJson } from "../common/api";
-import { calculateGamification } from "../common/gamification";
 import type {
   CalorieInput,
   CalorieSession,
   DietPlan,
   DietSuggestion,
-  StorageMode,
   TrainingDayPlan,
   TrainingPlan
 } from "./types";
-
-type HealthResponse = {
-  status: string;
-  storageMode: StorageMode;
-  fallbackActive: boolean;
-};
 
 const predefinedTrainingTypes = [
   "Bryst",
@@ -143,9 +135,6 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
   const effectiveUserId = userId?.trim() || "demo-user";
   const effectiveDisplayName = displayName?.trim() || "Demo bruker";
 
-  const [storageMode, setStorageMode] = useState<StorageMode>("memory");
-  const [healthError, setHealthError] = useState<string | null>(null);
-
   const [calorieInput, setCalorieInput] = useState<CalorieInput>(initialCalorieInput);
   const [calorieSession, setCalorieSession] = useState<CalorieSession | null>(null);
   const [calorieError, setCalorieError] = useState<string | null>(null);
@@ -161,7 +150,6 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
   const [manualMealsText, setManualMealsText] = useState("");
   const [mealCount, setMealCount] = useState(4);
   const [dietPlans, setDietPlans] = useState<DietPlan[]>([]);
-  const [calorieHistory, setCalorieHistory] = useState<CalorieSession[]>([]);
 
   const [selectedTypes, setSelectedTypes] = useState<string[]>(["Bryst"]);
   const [planName, setPlanName] = useState("Min ukeplan");
@@ -179,35 +167,12 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
     weekDays.map((day) => ({ day, exercises: [], notes: "" }))
   );
 
-  async function loadHealth(): Promise<void> {
-    try {
-      setHealthError(null);
-      const response = await fetch(`${apiBaseUrl}/health`);
-      if (!response.ok) {
-        throw new Error("Kunne ikke hente helsestatus");
-      }
-      const health = (await response.json()) as HealthResponse;
-      setStorageMode(health.storageMode);
-    } catch (error) {
-      setHealthError(error instanceof Error ? error.message : "Ukjent feil");
-    }
-  }
-
-  useEffect(() => {
-    void loadHealth();
-    const id = setInterval(() => {
-      void loadHealth();
-    }, 20000);
-    return () => clearInterval(id);
-  }, [apiBaseUrl]);
-
   useEffect(() => {
     void loadTrainingPlans();
   }, [apiBaseUrl, effectiveUserId]);
 
   useEffect(() => {
     void loadDietPlans();
-    void loadCalorieHistory();
   }, [apiBaseUrl, effectiveUserId]);
 
   const availableExercises = useMemo(() => {
@@ -230,15 +195,6 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
   const plannedSessionCount = useMemo(
     () => weekPlan.filter((day) => day.exercises.length > 0).length,
     [weekPlan]
-  );
-  const gamification = useMemo(
-    () =>
-      calculateGamification({
-        trainingPlans,
-        dietPlans,
-        calorieSessions: calorieHistory
-      }),
-    [trainingPlans, dietPlans, calorieHistory]
   );
   const showCalories = view === "all" || view === "calories" || view === "nutrition";
   const showDiet = view === "all" || view === "diet" || view === "nutrition";
@@ -338,7 +294,6 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
       );
       setTrainingSuggestions(trainingResponse.suggestions);
       setCalorieSuccess("Kalori- og kostholdsgrunnlag er oppdatert.");
-      setCalorieHistory((current) => [response.session, ...current]);
     } catch (error) {
       setCalorieError(error instanceof Error ? error.message : "Kalkulering feilet");
     } finally {
@@ -498,20 +453,6 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
     }
   }
 
-  async function loadCalorieHistory(): Promise<void> {
-    try {
-      const listResponse = await requestJson<{ sessions: CalorieSession[] }>(
-        apiBaseUrl,
-        "/api/calories/history",
-        { method: "GET" },
-        effectiveUserId
-      );
-      setCalorieHistory(listResponse.sessions);
-    } catch {
-      setCalorieHistory([]);
-    }
-  }
-
   function toggleTrainingType(type: string): void {
     setSelectedTypes((current) => {
       if (current.includes(type)) {
@@ -588,70 +529,7 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
 
   return (
     <main>
-      <section className="hero">
-        <h1 className="brand-mark" aria-label="pump.no">
-          <span className="brand-pill">Tren smartere</span>
-          <span className="brand-word">pump</span>
-          <span className="brand-dot">.</span>
-          <span className="brand-word">no</span>
-        </h1>
-        <p>
-          Nettbasert MVP for profil, kalorikalkulering, kostholdsråd og treningsplaner, bygget med API-først
-          arkitektur.
-        </p>
-        <p className="tiny">Innlogget som: {effectiveDisplayName}</p>
-        <span className={`status ${storageMode === "memory" ? "memory" : ""}`}>
-          Lagringsmodus: {storageMode}
-        </span>
-        {healthError ? <p className="message error">{healthError}</p> : null}
-        {storageMode === "memory" ? (
-          <p className="message error">
-            Fallback er aktiv: data lagres midlertidig i minnet og kan forsvinne ved omstart.
-          </p>
-        ) : null}
-        <div className="gamification-pill-row">
-          <span className="status gamification">🔥 Streak: {gamification.currentStreak} dager</span>
-          <span className="status gamification">⭐ Level {gamification.level} · {gamification.totalPoints} XP</span>
-          <span className="status gamification">🏆 Beste streak: {gamification.longestStreak} dager</span>
-        </div>
-      </section>
-
       <section className="grid">
-        <article className="card span-12 gamification-card">
-          <h2>Gamification</h2>
-          <div className="row two">
-            <div className="message">
-              <p className="tiny strong">Nivåfremdrift</p>
-              <p className="kpi">Level {gamification.level}</p>
-              <p className="tiny">
-                {gamification.pointsIntoLevel} / {gamification.levelSize} XP i nåværende nivå · {gamification.pointsToNextLevel} XP til neste nivå
-              </p>
-              <div className="xp-track" aria-label="XP-fremdrift">
-                <div className="xp-fill" style={{ width: `${gamification.progressPercent}%` }} />
-              </div>
-              <p className="tiny">Denne uken: {gamification.currentWeekPoints} XP</p>
-            </div>
-            <div className="message">
-              <p className="tiny strong">Personlig leaderboard (beste uker)</p>
-              {gamification.leaderboard.length === 0 ? (
-                <p className="tiny">Ingen poenguker ennå. Lagre en plan for å starte ranking.</p>
-              ) : (
-                <ol className="list leaderboard-list">
-                  {gamification.leaderboard.map((entry) => (
-                    <li key={entry.weekKey} className="leaderboard-item">
-                      <span>{entry.label}</span>
-                      <strong>{entry.points} XP</strong>
-                    </li>
-                  ))}
-                </ol>
-              )}
-              <p className="tiny">
-                Kilder: {gamification.totals.trainingPlans} treningsplaner, {gamification.totals.dietPlans} kostholdplaner og {gamification.totals.calorieSessions} kalorisesjoner.
-              </p>
-            </div>
-          </div>
-        </article>
-
         {showCalories ? (
         <article className="card span-12">
           <h2>Kalorikalkulering</h2>
@@ -950,10 +828,10 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
 
           <div className="actions">
             <button disabled={isSavingPlan} onClick={() => void createTrainingPlan()}>
-              {isSavingPlan ? "Lagrer plan..." : "Lagre egen plan"}
+              {isSavingPlan ? "Lagrer..." : "Lagre"}
             </button>
             <button type="button" className="reset-plan-button" onClick={resetTrainingPlan}>
-              reset plan
+              Reset
             </button>
           </div>
           {trainingError ? <p className="message error">{trainingError}</p> : null}

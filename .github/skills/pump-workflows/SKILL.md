@@ -46,3 +46,4 @@ description: "Use when: implementing pump.no features, changing auth/storage/fal
 - 2026-04-09: Treningsplanleggeren har nå reset-knapp som nullstiller planfelter og ukeplan for rask ny planlegging.
 - 2026-04-09: Reset i treningsplanleggeren nullstiller også ukeplanutkast og rydder treningsplan-visningen i UI for ny planstart.
 - 2026-04-09: Etter reset i treningsplanleggeren erstatter neste lagring planlisten i UI slik at bare den nye planen vises.
+- 2026-04-16: run-all.cmd starter nå run-api.cmd og run-web.cmd direkte (uten npm-run-all) og kjører npm ci automatisk når plattformspesifikk esbuild-mismatch oppdages.

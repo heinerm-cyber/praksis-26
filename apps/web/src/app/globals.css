@@ -80,6 +80,25 @@ a {
   transform: translateY(-1px);
 }
 
+.top-nav a.profile-icon-link {
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.top-nav a.profile-icon-link svg {
+  width: 1.2rem;
+  height: 1.2rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .google-signin {
   display: inline-flex;
   align-items: center;
@@ -191,7 +210,33 @@ main {
 }
 
 .home-refresh-button {
-  width: fit-content;
+  width: 2.5rem;
+  height: 2.5rem;
+  min-width: 2.5rem;
+  padding: 0;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.refresh-icon {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.refresh-icon.spinning {
+  animation: refresh-spin 0.9s linear infinite;
+}
+
+@keyframes refresh-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .category-grid {
@@ -367,6 +412,10 @@ main {
   display: flex;
   gap: 0.6rem;
   flex-wrap: wrap;
+}
+
+.home-bottom-actions {
+  margin-top: 0.4rem;
 }
 
 .reset-plan-button {

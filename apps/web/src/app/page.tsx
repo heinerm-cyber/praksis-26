@@ -132,6 +132,18 @@ export default function HomePage(): JSX.Element {
 
   return (
     <main>
+      <section className="hero home-hero" aria-label="Pump.no introduksjon">
+        <h1>
+          <span className="brand-mark" aria-label="Pump.no">
+            <span className="brand-pill">Trening og kosthold</span>
+            <span className="brand-word">pump</span>
+            <span className="brand-dot">.</span>
+            <span className="brand-word">no</span>
+          </span>
+        </h1>
+        <p>Planlegg smartere med personlige trenings- og kostholdplaner på ett sted.</p>
+      </section>
+
       {!authSession ? (
         <article className="card login-card">
           <div className="actions">
@@ -323,16 +335,22 @@ export default function HomePage(): JSX.Element {
       ) : null}
 
       {authSession ? (
-        <article className="card login-card">
-          <div className="actions">
-            <button className="secondary home-refresh-button" onClick={() => void loadPlans()} disabled={isLoading}>
-              {isLoading ? "Oppdaterer..." : "Oppdater planer"}
-            </button>
-            <button type="button" className="secondary" onClick={logout}>
-              Logg ut
-            </button>
-          </div>
-        </article>
+        <div className="actions home-bottom-actions">
+          <button
+            className="secondary home-refresh-button"
+            onClick={() => void loadPlans()}
+            disabled={isLoading}
+            aria-label={isLoading ? "Oppdaterer planer" : "Oppdater planer"}
+            title={isLoading ? "Oppdaterer planer" : "Oppdater planer"}
+          >
+            <span className={`refresh-icon${isLoading ? " spinning" : ""}`} aria-hidden="true">
+              ↻
+            </span>
+          </button>
+          <button type="button" className="secondary" onClick={logout}>
+            Logg ut
+          </button>
+        </div>
       ) : null}
     </main>
   );

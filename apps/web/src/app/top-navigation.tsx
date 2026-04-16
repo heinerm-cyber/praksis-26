@@ -28,7 +28,7 @@ export function TopNavigation(): JSX.Element {
     <nav className="top-nav" aria-label="Hovedmeny">
       <div className="top-nav-main">
         <Link href="/">Startside</Link>
-        <Link href="/kalorier">Kalori og kosthold</Link>
+        <Link href="/kalorier">Kosthold</Link>
         <Link href="/trening">Trening</Link>
         <Link href="/leaderboard">Leaderboard</Link>
       </div>

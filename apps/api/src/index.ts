@@ -3,6 +3,7 @@ import express from "express";
 import { env } from "./config/env.js";
 import { requireUser } from "./middleware/auth.js";
 import { errorHandler } from "./middleware/errorHandler.js";
+import { createAuthRoutes } from "./routes/authRoutes.js";
 import { createCalorieRoutes } from "./routes/calorieRoutes.js";
 import { createDietRoutes } from "./routes/dietRoutes.js";
 import { createProfileRoutes } from "./routes/profileRoutes.js";
@@ -24,6 +25,7 @@ async function bootstrap(): Promise<void> {
     });
   });
 
+  app.use("/api/auth", createAuthRoutes());
   app.use("/api/profile", requireUser, createProfileRoutes(storage));
   app.use("/api/calories", requireUser, createCalorieRoutes(storage));
   app.use("/api/diets", requireUser, createDietRoutes(storage));

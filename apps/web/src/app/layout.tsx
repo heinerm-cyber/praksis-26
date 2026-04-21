@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Script from "next/script";
 import { TopNavAuth } from "../features/auth/top-nav-auth";
 import "./globals.css";
 
@@ -12,6 +13,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }):
   return (
     <html lang="no">
       <body>
+        <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" />
         <nav className="top-nav" aria-label="Hovedmeny">
           <div className="top-nav-main">
             <Link href="/">Startside</Link>

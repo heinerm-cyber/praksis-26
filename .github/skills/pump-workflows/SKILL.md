@@ -76,3 +76,4 @@ description: "Use when: implementing pump.no features, changing auth/storage/fal
 - 2026-04-21: Web er migrert til ren SPA-auth med API-baserte login/register/me-endepunkter og bearer-token i Authorization-header; NextAuth og web-route-auth er fjernet fra runtime.
 - 2026-04-21: Google auth er reaktivert i SPA-flyten via Google Identity Services i web og nytt API-endepunkt POST /api/auth/google som verifiserer ID-token og utsteder pump-bearer-token.
 - 2026-04-21: Azure Static Web Apps deploy konfigureres som web-only fra apps/web (.next output), mens apps/api deployes separat som Node.js-tjeneste; web peker til backend via NEXT_PUBLIC_API_BASE_URL.
+- 2026-04-21: API deploy-workflow støtter både publish profile og Azure login (service principal) med eksplisitt secrets-validering for å unngå utydelige credential-feil i CI.

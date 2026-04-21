@@ -68,6 +68,11 @@ npm run typecheck
 - Sett `NEXT_PUBLIC_API_BASE_URL` i `apps/web/.env` (og i Azure SWA application settings) til den publiserte API-URL-en.
 - Frontend bruker denne variabelen for kall til `/api/*`-endepunkter mot separat backend.
 
+API deploy workflow (`.github/workflows/deploy-api-appservice.yml`) krever disse GitHub secrets:
+- `AZURE_API_WEBAPP_NAME` (påkrevd)
+- `AZURE_API_WEBAPP_PUBLISH_PROFILE` (anbefalt)
+- `AZURE_CREDENTIALS` (alternativ hvis publish profile ikke brukes)
+
 ## iOS (Xcode + TestFlight)
 Denne repoen er satt opp med Capacitor for iOS-wrapper av webappen.
 

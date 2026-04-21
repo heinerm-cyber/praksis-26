@@ -75,3 +75,4 @@ description: "Use when: implementing pump.no features, changing auth/storage/fal
 - 2026-04-21: iOS-spor er etablert med Capacitor-wrapper for Next.js-webappen, styrt av PUMP_MOBILE_WEB_URL mot hostet web, med Xcode/TestFlight-flyt dokumentert i README.
 - 2026-04-21: Web er migrert til ren SPA-auth med API-baserte login/register/me-endepunkter og bearer-token i Authorization-header; NextAuth og web-route-auth er fjernet fra runtime.
 - 2026-04-21: Google auth er reaktivert i SPA-flyten via Google Identity Services i web og nytt API-endepunkt POST /api/auth/google som verifiserer ID-token og utsteder pump-bearer-token.
+- 2026-04-21: Azure Static Web Apps deploy konfigureres som web-only fra apps/web (.next output), mens apps/api deployes separat som Node.js-tjeneste; web peker til backend via NEXT_PUBLIC_API_BASE_URL.

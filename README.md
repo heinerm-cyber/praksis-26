@@ -62,6 +62,12 @@ npm run test
 npm run typecheck
 ```
 
+## Azure deployment (SWA + separate API)
+- Azure Static Web Apps deployer kun frontend fra `apps/web` i denne repoen.
+- `apps/api` deployes separat som Node.js API (for eksempel Azure App Service eller Azure Container Apps).
+- Sett `NEXT_PUBLIC_API_BASE_URL` i `apps/web/.env` (og i Azure SWA application settings) til den publiserte API-URL-en.
+- Frontend bruker denne variabelen for kall til `/api/*`-endepunkter mot separat backend.
+
 ## iOS (Xcode + TestFlight)
 Denne repoen er satt opp med Capacitor for iOS-wrapper av webappen.
 

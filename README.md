@@ -62,6 +62,39 @@ npm run test
 npm run typecheck
 ```
 
+## iOS (Xcode + TestFlight)
+Denne repoen er satt opp med Capacitor for iOS-wrapper av webappen.
+
+1. Sørg for at webappen er deployet på en offentlig HTTPS-URL.
+2. Sett `PUMP_MOBILE_WEB_URL` til produksjons-URL i `apps/web/.env`.
+3. Sync iOS-prosjektet fra repo root:
+
+```bash
+npm run cap:sync:ios --workspace @pump/web
+```
+
+4. For å opprette iOS-prosjekt første gang:
+
+```bash
+npm run cap:add:ios --workspace @pump/web
+```
+
+5. Åpne prosjektet i Xcode:
+
+```bash
+npm run cap:open:ios --workspace @pump/web
+```
+
+TestFlight flyt (på macOS):
+- Sett korrekt Team, Bundle Identifier og Signing i Xcode.
+- Velg `Any iOS Device (arm64)` og kjør `Product -> Archive`.
+- Last opp arkivet via Organizer til App Store Connect.
+- Opprett intern/ekstern testgruppe i TestFlight og inviter testere.
+
+Merk:
+- iOS-build og opplasting til TestFlight krever macOS + Xcode.
+- Uten `PUMP_MOBILE_WEB_URL` viser wrapperen en lokal fallback-side med konfigurasjonsinfo.
+
 ## Command Prompt run files
 From repo root in Windows Command Prompt:
 
@@ -92,21 +125,12 @@ chmod +x run-api.sh run-web.sh run-all.sh
 If you move the repository between operating systems (for example Windows to Ubuntu/WSL), the shell run files automatically detect incompatible node_modules binaries (such as esbuild) and run a clean npm ci reinstall for the current platform.
 
 ## Current auth note
-- API currently uses x-user-id header as temporary user context for MVP development.
-- Azure AD B2C token validation is planned next and documented in instructions.
-- Web supports local e-post/passord login and optional Google OAuth via NextAuth when Google env values are configured.
-- Web startup is login-first: users without valid NextAuth cookie are redirected to /login; users with valid cookie go directly to startside.
-
-## Google OAuth setup (web)
-1. In Google Cloud Console, create OAuth 2.0 Client ID (Web application).
-2. Add redirect URI: http://localhost:3000/api/auth/callback/google
-3. Copy apps/web/.env.example to apps/web/.env and set values:
-	- NEXTAUTH_URL=http://localhost:3000
-	- NEXTAUTH_SECRET=<any long random secret for local dev>
-	- GOOGLE_CLIENT_ID=<from Google Cloud>
-	- GOOGLE_CLIENT_SECRET=<from Google Cloud>
-4. Start web and open /login.
-5. Use Sign-in with Google to authenticate. Local login/register remains available in the same view.
+- API autentisering bruker bearer access token i `Authorization`-header.
+- Web er migrert til client-side SPA-auth: login/register kaller API-endepunkter direkte.
+- API tilbyr auth-endepunkter: `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/google`, `GET /api/auth/me`.
+- Google-innlogging i SPA bruker Google ID-token fra browser og verifiseres i API før eget bearer-token utstedes.
+- Sett `GOOGLE_CLIENT_ID` i `apps/api/.env` og `NEXT_PUBLIC_GOOGLE_CLIENT_ID` i `apps/web/.env` for å aktivere Google-knappen.
+- Azure AD B2C er fortsatt målarkitektur for produksjon og kan kobles på samme bearer-kontrakt.
 
 ## Fallback behavior details
 - If COSMOS_ENDPOINT or COSMOS_KEY is missing, API starts in memory mode.

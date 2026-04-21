@@ -2,36 +2,26 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-
-type SessionResponse = {
-  user?: {
-    email?: string | null;
-  };
-};
+import { getAuthSession } from "./session";
 
 export function TopNavAuth(): JSX.Element | null {
   const [isReady, setIsReady] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    async function checkSession(): Promise<void> {
-      try {
-        const response = await fetch("/api/auth/session", { cache: "no-store" });
-        if (!response.ok) {
-          setIsLoggedIn(false);
-          return;
-        }
-
-        const payload = (await response.json()) as SessionResponse;
-        setIsLoggedIn(Boolean(payload.user));
-      } catch {
-        setIsLoggedIn(false);
-      } finally {
-        setIsReady(true);
-      }
+    function updateFromStorage(): void {
+      setIsLoggedIn(Boolean(getAuthSession()));
+      setIsReady(true);
     }
 
-    void checkSession();
+    updateFromStorage();
+    window.addEventListener("storage", updateFromStorage);
+    window.addEventListener("pump-auth-changed", updateFromStorage);
+
+    return () => {
+      window.removeEventListener("storage", updateFromStorage);
+      window.removeEventListener("pump-auth-changed", updateFromStorage);
+    };
   }, []);
 
   if (!isReady || isLoggedIn) {

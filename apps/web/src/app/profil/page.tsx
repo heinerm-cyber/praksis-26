@@ -1,13 +1,12 @@
 "use client";
 
-import { signOut } from "next-auth/react";
 import { AuthGate } from "../../features/auth/auth-gate";
 import { clearAuthSession } from "../../features/auth/session";
 
 export default function ProfilePage(): JSX.Element {
   async function logout(): Promise<void> {
     clearAuthSession();
-    await signOut({ callbackUrl: "/login", redirect: true });
+    window.location.assign("/login");
   }
 
   return (

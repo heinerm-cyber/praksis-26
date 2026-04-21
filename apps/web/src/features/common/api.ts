@@ -6,7 +6,7 @@ export async function requestJson<T>(
   baseUrl: string,
   path: string,
   options: RequestInit,
-  userId?: string
+  accessToken?: string
 ): Promise<T> {
   const headers = new Headers(options.headers ?? {});
 
@@ -14,8 +14,8 @@ export async function requestJson<T>(
     headers.set("content-type", "application/json");
   }
 
-  if (userId) {
-    headers.set("x-user-id", userId);
+  if (accessToken) {
+    headers.set("authorization", `Bearer ${accessToken}`);
   }
 
   const response = await fetch(`${baseUrl}${path}`, {

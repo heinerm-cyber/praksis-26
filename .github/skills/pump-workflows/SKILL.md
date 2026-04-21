@@ -72,3 +72,6 @@ description: "Use when: implementing pump.no features, changing auth/storage/fal
 - 2026-04-16: Bruker kan nå slette lagrede treningsplaner og kostholdplaner via web-UI; API støtter DELETE-endepunkter med userId-skoping for både memory- og cosmos-adapter.
 - 2026-04-16: Sletting i web-UI bruker nå 5 sekunders angre-vindu før permanent DELETE-kall; tom-tilstander har tydelige CTA-er og visuell rytme er strammet med bedre seksjonsstruktur, spacing og knappehierarki.
 - 2026-04-16: Startsiden viser ikke lenger seksjonsknappene "Lag ny plan" i trenings- og kostholdboksene; opprettelse skjer via undersidene eller tom-tilstandens opprett-knapper.
+- 2026-04-21: iOS-spor er etablert med Capacitor-wrapper for Next.js-webappen, styrt av PUMP_MOBILE_WEB_URL mot hostet web, med Xcode/TestFlight-flyt dokumentert i README.
+- 2026-04-21: Web er migrert til ren SPA-auth med API-baserte login/register/me-endepunkter og bearer-token i Authorization-header; NextAuth og web-route-auth er fjernet fra runtime.
+- 2026-04-21: Google auth er reaktivert i SPA-flyten via Google Identity Services i web og nytt API-endepunkt POST /api/auth/google som verifiserer ID-token og utsteder pump-bearer-token.

@@ -5,6 +5,8 @@ dotenv.config();
 
 const envSchema = z.object({
   PORT: z.string().default("4000"),
+  AUTH_TOKEN_SECRET: z.string().default("pump-dev-secret-change-me"),
+  GOOGLE_CLIENT_ID: z.string().optional(),
   COSMOS_ENDPOINT: z.string().optional(),
   COSMOS_KEY: z.string().optional(),
   COSMOS_DATABASE: z.string().default("pump"),

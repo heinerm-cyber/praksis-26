@@ -96,6 +96,7 @@ type TrainingProgramTemplate = {
 type PendingTrainingDeletion = {
   index: number;
   plan: TrainingPlan;
+  timerId: number;
 };
 
 const trainingProgramTemplates: TrainingProgramTemplate[] = [
@@ -170,17 +171,17 @@ const trainingProgramTemplates: TrainingProgramTemplate[] = [
 ];
 
 type PumpDashboardProps = {
-  userId?: string;
+  accessToken?: string;
   displayName?: string;
   view?: "all" | "calories" | "diet" | "nutrition" | "training";
 };
 
-export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboardProps): JSX.Element {
+export function PumpDashboard({ accessToken, displayName, view = "all" }: PumpDashboardProps): JSX.Element {
   const apiBaseUrl = useMemo(
     () => process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000",
     []
   );
-  const effectiveUserId = userId?.trim() || "demo-user";
+  const effectiveAccessToken = accessToken?.trim() || "";
   const effectiveDisplayName = displayName?.trim() || "Demo bruker";
 
   const [calorieInput, setCalorieInput] = useState<CalorieInput>(initialCalorieInput);
@@ -218,11 +219,11 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
 
   useEffect(() => {
     void loadTrainingPlans();
-  }, [apiBaseUrl, effectiveUserId]);
+  }, [apiBaseUrl, effectiveAccessToken]);
 
   useEffect(() => {
     void loadDietPlans();
-  }, [apiBaseUrl, effectiveUserId]);
+  }, [apiBaseUrl, effectiveAccessToken]);
 
   const availableExercises = useMemo(() => {
     const sourceTypes = selectedTypes.length > 0 ? selectedTypes : predefinedTrainingTypes;
@@ -343,7 +344,7 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
           method: "POST",
           body: JSON.stringify(calorieInput)
         },
-        effectiveUserId
+        effectiveAccessToken
       );
       setCalorieSession(response.session);
 
@@ -351,7 +352,7 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
         apiBaseUrl,
         `/api/diets/suggestions?dailyCalories=${response.session.result.dailyCalories}`,
         { method: "GET" },
-        effectiveUserId
+        effectiveAccessToken
       );
       setDietSuggestion(dietResponse.suggestion);
       setDietError(null);
@@ -360,7 +361,7 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
         apiBaseUrl,
         `/api/training/suggestions?dailyCalories=${response.session.result.dailyCalories}`,
         { method: "GET" },
-        effectiveUserId
+        effectiveAccessToken
       );
       setTrainingSuggestions(trainingResponse.suggestions);
       setCalorieSuccess("Kalori- og kostholdsgrunnlag er oppdatert.");
@@ -399,7 +400,7 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
             weekPlan: normalizedWeekPlan
           })
         },
-        effectiveUserId
+        effectiveAccessToken
       );
 
       if (replacePlansOnNextSave) {
@@ -438,7 +439,7 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
             notes: dietPlanNotes.trim() || undefined
           })
         },
-        effectiveUserId
+        effectiveAccessToken
       );
 
       setDietPlanSuccess(`Lagret kostholdplan: ${response.plan.planName}`);
@@ -479,7 +480,7 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
             notes: dietPlanNotes.trim() || undefined
           })
         },
-        effectiveUserId
+        effectiveAccessToken
       );
 
       setDietPlanSuccess(`Lagret manuell kostholdplan: ${response.plan.planName}`);
@@ -556,7 +557,7 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
         apiBaseUrl,
         "/api/training/plans",
         { method: "GET" },
-        effectiveUserId
+        effectiveAccessToken
       );
       setTrainingPlans(listResponse.plans);
     } catch {
@@ -570,7 +571,7 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
         apiBaseUrl,
         "/api/diets/plans",
         { method: "GET" },
-        effectiveUserId
+        effectiveAccessToken
       );
       setDietPlans(listResponse.plans);
     } catch {
@@ -650,6 +651,68 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
     setTrainingPlans([]);
     setReplacePlansOnNextSave(true);
     setWeekPlan(weekDays.map((day) => ({ day, exercises: [], notes: "" })));
+  }
+
+  async function requestTrainingDeletion(planId: string): Promise<void> {
+    if (!effectiveAccessToken) {
+      setTrainingError("Du mangler gyldig innlogging");
+      return;
+    }
+
+    try {
+      setTrainingError(null);
+      const currentPlan = trainingPlans.find((plan) => plan.id === planId);
+      if (!currentPlan) {
+        return;
+      }
+
+      const index = trainingPlans.findIndex((plan) => plan.id === planId);
+      const timerId = window.setTimeout(async () => {
+        try {
+          await requestJson<{ deleted: boolean }>(
+            apiBaseUrl,
+            `/api/training/plans/${planId}`,
+            { method: "DELETE" },
+            effectiveAccessToken
+          );
+          setTrainingPlans((current) => current.filter((plan) => plan.id !== planId));
+          setTrainingSuccess("Treningsplan ble slettet.");
+        } catch (error) {
+          setTrainingError(error instanceof Error ? error.message : "Kunne ikke slette treningsplan");
+          setTrainingPlans((current) => {
+            const next = [...current];
+            next.splice(index, 0, currentPlan);
+            return next;
+          });
+        } finally {
+          setPendingTrainingDeletion(null);
+        }
+      }, 5000);
+
+      setTrainingPlans((current) => current.filter((plan) => plan.id !== planId));
+      setPendingTrainingDeletion({
+        index,
+        plan: currentPlan,
+        timerId
+      });
+    } catch (error) {
+      setTrainingError(error instanceof Error ? error.message : "Kunne ikke slette treningsplan");
+    }
+  }
+
+  function undoTrainingDeletion(): void {
+    if (!pendingTrainingDeletion) {
+      return;
+    }
+
+    window.clearTimeout(pendingTrainingDeletion.timerId);
+    setTrainingPlans((current) => {
+      const next = [...current];
+      next.splice(pendingTrainingDeletion.index, 0, pendingTrainingDeletion.plan);
+      return next;
+    });
+    setPendingTrainingDeletion(null);
+    setTrainingSuccess("Sletting ble avbrutt.");
   }
 
   return (

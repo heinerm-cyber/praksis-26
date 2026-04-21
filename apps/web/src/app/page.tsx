@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { signOut } from "next-auth/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { requestJson } from "../features/common/api";
 import { clearAuthSession, getAuthSession, type AuthSession } from "../features/auth/session";
 
@@ -29,6 +28,12 @@ type DietPlanPreview = {
   meals: string[];
 };
 
+type PendingDeletion = {
+  kind: "training" | "diet";
+  planId: string;
+  timerId: number;
+};
+
 export default function HomePage(): JSX.Element {
   const apiBaseUrl = useMemo(
     () => process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000",
@@ -41,8 +46,8 @@ export default function HomePage(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [pendingDeletion, setPendingDeletion] = useState<PendingDeletion | null>(null);
+  const pendingDeletionRef = useRef<PendingDeletion | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const latestTrainingPlan = trainingPlans[0] ?? null;
 
   async function loadPlans(): Promise<void> {
     if (!authSession) {
@@ -56,8 +61,18 @@ export default function HomePage(): JSX.Element {
       setIsLoading(true);
       setError(null);
       const [trainingResponse, dietResponse] = await Promise.all([
-        requestJson<{ plans: PlanPreview[] }>(apiBaseUrl, "/api/training/plans", { method: "GET" }, authSession.userId),
-        requestJson<{ plans: DietPlanPreview[] }>(apiBaseUrl, "/api/diets/plans", { method: "GET" }, authSession.userId)
+        requestJson<{ plans: PlanPreview[] }>(
+          apiBaseUrl,
+          "/api/training/plans",
+          { method: "GET" },
+          authSession.accessToken
+        ),
+        requestJson<{ plans: DietPlanPreview[] }>(
+          apiBaseUrl,
+          "/api/diets/plans",
+          { method: "GET" },
+          authSession.accessToken
+        )
       ]);
       setTrainingPlans(trainingResponse.plans);
       setDietPlans(dietResponse.plans);
@@ -71,49 +86,16 @@ export default function HomePage(): JSX.Element {
   }
 
   useEffect(() => {
-    async function resolveSession(): Promise<void> {
-      const localSession = getAuthSession();
-      if (localSession) {
-        setAuthSession(localSession);
-        setAuthReady(true);
-        return;
+    setAuthSession(getAuthSession());
+    setAuthReady(true);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (pendingDeletionRef.current) {
+        window.clearTimeout(pendingDeletionRef.current.timerId);
       }
-
-      try {
-        const response = await fetch("/api/auth/session", { cache: "no-store" });
-        if (!response.ok) {
-          setAuthReady(true);
-          return;
-        }
-
-        const payload = (await response.json()) as {
-          user?: {
-            email?: string | null;
-            name?: string | null;
-            sub?: string | null;
-          };
-        };
-
-        if (!payload.user?.email || !payload.user.name) {
-          setAuthReady(true);
-          return;
-        }
-
-        setAuthSession({
-          userId: payload.user.sub ?? payload.user.email,
-          email: payload.user.email,
-          name: payload.user.name,
-          loggedInAt: new Date().toISOString(),
-          provider: "google"
-        });
-      } catch {
-        // Keep home unauthenticated if OAuth lookup fails.
-      } finally {
-        setAuthReady(true);
-      }
-    }
-
-    void resolveSession();
+    };
   }, []);
 
   useEffect(() => {
@@ -124,10 +106,82 @@ export default function HomePage(): JSX.Element {
   }, [apiBaseUrl, authSession, authReady]);
 
   async function logout(): Promise<void> {
+    if (pendingDeletionRef.current) {
+      window.clearTimeout(pendingDeletionRef.current.timerId);
+      pendingDeletionRef.current = null;
+      setPendingDeletion(null);
+    }
+
     clearAuthSession();
     setAuthSession(null);
     setError(null);
-    await signOut({ callbackUrl: "/login", redirect: true });
+    window.location.assign("/login");
+  }
+
+  function undoPendingDeletion(): void {
+    if (!pendingDeletionRef.current) {
+      return;
+    }
+
+    window.clearTimeout(pendingDeletionRef.current.timerId);
+    pendingDeletionRef.current = null;
+    setPendingDeletion(null);
+    setActionSuccess("Sletting ble avbrutt.");
+  }
+
+  function scheduleDelete(kind: "training" | "diet", planId: string): void {
+    if (!authSession) {
+      return;
+    }
+
+    if (pendingDeletionRef.current) {
+      window.clearTimeout(pendingDeletionRef.current.timerId);
+    }
+
+    const timerId = window.setTimeout(async () => {
+      try {
+        const path =
+          kind === "training" ? `/api/training/plans/${planId}` : `/api/diets/plans/${planId}`;
+
+        await requestJson<{ deleted: boolean }>(
+          apiBaseUrl,
+          path,
+          { method: "DELETE" },
+          authSession.accessToken
+        );
+
+        if (kind === "training") {
+          setTrainingPlans((current) => current.filter((plan) => plan.id !== planId));
+        } else {
+          setDietPlans((current) => current.filter((plan) => plan.id !== planId));
+        }
+
+        setActionSuccess("Planen ble slettet.");
+      } catch (deleteError) {
+        setError(deleteError instanceof Error ? deleteError.message : "Kunne ikke slette plan");
+      } finally {
+        pendingDeletionRef.current = null;
+        setPendingDeletion(null);
+      }
+    }, 5000);
+
+    const pending: PendingDeletion = {
+      kind,
+      planId,
+      timerId
+    };
+
+    pendingDeletionRef.current = pending;
+    setPendingDeletion(pending);
+    setActionSuccess(null);
+  }
+
+  function requestTrainingDelete(planId: string): void {
+    scheduleDelete("training", planId);
+  }
+
+  function requestDietDelete(planId: string): void {
+    scheduleDelete("diet", planId);
   }
 
   return (

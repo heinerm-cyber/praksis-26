@@ -29,6 +29,12 @@ type DietPlanPreview = {
   meals: string[];
 };
 
+type PendingDeletion = {
+  kind: "training" | "diet";
+  planId: string;
+  timeoutId: ReturnType<typeof setTimeout>;
+};
+
 export default function HomePage(): JSX.Element {
   const apiBaseUrl = useMemo(
     () => process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000",
@@ -122,6 +128,86 @@ export default function HomePage(): JSX.Element {
     }
     void loadPlans();
   }, [apiBaseUrl, authSession, authReady]);
+
+  useEffect(() => {
+    return () => {
+      if (pendingDeletion) {
+        clearTimeout(pendingDeletion.timeoutId);
+      }
+    };
+  }, [pendingDeletion]);
+
+  async function requestTrainingDelete(planId: string): Promise<void> {
+    if (!authSession) {
+      return;
+    }
+
+    if (pendingDeletion) {
+      clearTimeout(pendingDeletion.timeoutId);
+    }
+
+    const timeoutId = setTimeout(async () => {
+      try {
+        await requestJson<{ success: boolean }>(
+          apiBaseUrl,
+          `/api/training/plans/${encodeURIComponent(planId)}`,
+          { method: "DELETE" },
+          authSession.userId
+        );
+        setTrainingPlans((current) => current.filter((plan) => plan.id !== planId));
+        setActionSuccess("Treningsplan slettet.");
+        setError(null);
+      } catch (deleteError) {
+        setError(deleteError instanceof Error ? deleteError.message : "Kunne ikke slette treningsplan");
+      } finally {
+        setPendingDeletion(null);
+      }
+    }, 5000);
+
+    setActionSuccess(null);
+    setPendingDeletion({ kind: "training", planId, timeoutId });
+  }
+
+  async function requestDietDelete(planId: string): Promise<void> {
+    if (!authSession) {
+      return;
+    }
+
+    if (pendingDeletion) {
+      clearTimeout(pendingDeletion.timeoutId);
+    }
+
+    const timeoutId = setTimeout(async () => {
+      try {
+        await requestJson<{ success: boolean }>(
+          apiBaseUrl,
+          `/api/diets/plans/${encodeURIComponent(planId)}`,
+          { method: "DELETE" },
+          authSession.userId
+        );
+        setDietPlans((current) => current.filter((plan) => plan.id !== planId));
+        setActionSuccess("Kostholdplan slettet.");
+        setError(null);
+      } catch (deleteError) {
+        setError(deleteError instanceof Error ? deleteError.message : "Kunne ikke slette kostholdplan");
+      } finally {
+        setPendingDeletion(null);
+      }
+    }, 5000);
+
+    setActionSuccess(null);
+    setPendingDeletion({ kind: "diet", planId, timeoutId });
+  }
+
+  function undoPendingDeletion(): void {
+    if (!pendingDeletion) {
+      return;
+    }
+
+    clearTimeout(pendingDeletion.timeoutId);
+    setPendingDeletion(null);
+    setActionSuccess("Sletting avbrutt.");
+  }
 
   async function logout(): Promise<void> {
     clearAuthSession();

@@ -62,6 +62,13 @@ npm run test
 npm run typecheck
 ```
 
+## Deploy without Vercel (one-click)
+Use Render blueprint deployment from this repository:
+
+https://render.com/deploy?repo=https://github.com/heinerm-cyber/praksis-26
+
+After deploy, open the `pump-web` public URL on your mobile and install as app from browser menu.
+
 ## Command Prompt run files
 From repo root in Windows Command Prompt:
 
@@ -74,6 +81,8 @@ run-all.cmd
 - run-api.cmd: starts backend API on port 4000.
 - run-web.cmd: starts Next.js web app on port 3000 and opens browser when the web server is ready.
 - run-all.cmd: starts both web and API together and opens browser when the web server is ready.
+
+If the repository was moved between operating systems, run-all.cmd now detects incompatible node_modules binaries, performs a clean npm ci reinstall, and stops safely if dependencies are still incomplete or locked (for example EPERM on Next.js native binaries). The script starts API/web directly with node.exe so it can run in Windows environments where local .cmd launchers are policy-blocked.
 
 ## Shell run files (macOS/Linux)
 From repo root in Terminal:

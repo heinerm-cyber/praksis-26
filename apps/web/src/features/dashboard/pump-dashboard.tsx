@@ -94,8 +94,8 @@ type TrainingProgramTemplate = {
 };
 
 type PendingTrainingDeletion = {
-  index: number;
-  plan: TrainingPlan;
+  planId: string;
+  timeoutId: ReturnType<typeof setTimeout>;
 };
 
 const trainingProgramTemplates: TrainingProgramTemplate[] = [
@@ -223,6 +223,14 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
   useEffect(() => {
     void loadDietPlans();
   }, [apiBaseUrl, effectiveUserId]);
+
+  useEffect(() => {
+    return () => {
+      if (pendingTrainingDeletion) {
+        clearTimeout(pendingTrainingDeletion.timeoutId);
+      }
+    };
+  }, [pendingTrainingDeletion]);
 
   const availableExercises = useMemo(() => {
     const sourceTypes = selectedTypes.length > 0 ? selectedTypes : predefinedTrainingTypes;
@@ -571,6 +579,42 @@ export function PumpDashboard({ userId, displayName, view = "all" }: PumpDashboa
     } catch {
       setDietPlans([]);
     }
+  }
+
+  function requestTrainingDeletion(planId: string): void {
+    if (pendingTrainingDeletion) {
+      clearTimeout(pendingTrainingDeletion.timeoutId);
+    }
+
+    const timeoutId = setTimeout(async () => {
+      try {
+        await requestJson<{ success: boolean }>(
+          apiBaseUrl,
+          `/api/training/plans/${encodeURIComponent(planId)}`,
+          { method: "DELETE" },
+          effectiveUserId
+        );
+        setTrainingPlans((current) => current.filter((plan) => plan.id !== planId));
+        setTrainingSuccess("Treningsplan slettet.");
+        setTrainingError(null);
+      } catch (error) {
+        setTrainingError(error instanceof Error ? error.message : "Kunne ikke slette treningsplan");
+      } finally {
+        setPendingTrainingDeletion(null);
+      }
+    }, 5000);
+
+    setPendingTrainingDeletion({ planId, timeoutId });
+  }
+
+  function undoTrainingDeletion(): void {
+    if (!pendingTrainingDeletion) {
+      return;
+    }
+
+    clearTimeout(pendingTrainingDeletion.timeoutId);
+    setPendingTrainingDeletion(null);
+    setTrainingSuccess("Sletting avbrutt.");
   }
 
   function toggleTrainingType(type: string): void {

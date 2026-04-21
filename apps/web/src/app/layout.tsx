@@ -5,7 +5,18 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "pump.no",
-  description: "Kalori, kosthold og treningsplaner bygget for web og fremtidig mobilbruk"
+  description: "Kalori, kosthold og treningsplaner bygget for web og fremtidig mobilbruk",
+  applicationName: "pump.no",
+  manifest: "/manifest.webmanifest",
+  themeColor: "#0f4c81",
+  appleWebApp: {
+    capable: true,
+    title: "pump.no",
+    statusBarStyle: "default"
+  },
+  icons: {
+    apple: "/apple-icon"
+  }
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }): JSX.Element {

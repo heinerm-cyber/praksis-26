@@ -530,6 +530,27 @@ button:disabled {
   margin-top: 0.35rem;
 }
 
+.training-day-card {
+  margin-top: 0.7rem;
+  padding: 0.7rem;
+  border: 1px solid #1b263b1f;
+  border-radius: var(--radius-md);
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+  display: grid;
+  gap: 0.5rem;
+}
+
+.training-custom-exercise {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  gap: 0.5rem;
+}
+
+.training-custom-exercise label {
+  margin-bottom: 0;
+}
+
 .plan-item {
   border: 1px solid #1b263b1f;
   border-radius: var(--radius-md);

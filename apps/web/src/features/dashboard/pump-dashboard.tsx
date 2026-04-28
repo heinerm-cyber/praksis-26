@@ -858,31 +858,13 @@ export function PumpDashboard({ accessToken, displayName, view = "all" }: PumpDa
                 </ul>
               </div>
 
-              <div className="message">
-                <p className="tiny strong">Lagre forslag som kostholdplan</p>
-                <label>
-                  Navn på kostholdplan
-                  <input value={dietPlanName} onChange={(event) => setDietPlanName(event.target.value)} />
-                </label>
-                <label>
-                  Notater (valgfritt)
-                  <textarea
-                    value={dietPlanNotes}
-                    onChange={(event) => setDietPlanNotes(event.target.value)}
-                    placeholder="Hva vil du fokusere på i denne planen?"
-                  />
-                </label>
-                <button type="button" disabled={isSavingDietPlan} onClick={() => void saveDietPlanFromSuggestion()}>
-                  {isSavingDietPlan ? "Lagrer kostholdplan..." : "Lagre dette forslaget"}
-                </button>
-              </div>
+
             </>
           ) : (
             <p className="tiny">Kjør kalorikalkulering for å hente forslag.</p>
           )}
 
           <div className="message">
-            <p className="tiny strong">Eller lag manuell kostholdplan</p>
             <p className="tiny">
               Bygg spiseplanen måltid for måltid. {caloriesPerMeal ? `Mål per måltid: ca. ${caloriesPerMeal} kcal.` : "Kjør kaloriutregning for kcal-mål per måltid."}
             </p>
@@ -919,7 +901,7 @@ export function PumpDashboard({ accessToken, displayName, view = "all" }: PumpDa
                 Tøm måltider
               </button>
               <button type="button" disabled={isSavingDietPlan} onClick={() => void saveManualDietPlan()}>
-                {isSavingDietPlan ? "Lagrer kostholdplan..." : "Lagre manuell plan"}
+                {isSavingDietPlan ? "Lagrer kostholdplan..." : "Lagre Plan"}
               </button>
             </div>
 
@@ -941,9 +923,9 @@ export function PumpDashboard({ accessToken, displayName, view = "all" }: PumpDa
         ) : null}
 
         {showTraining ? (
-        <article className="card span-6">
+        <article className={`card ${showDiet ? "span-6" : "span-12"}`}>
           <h2>Treningsplaner</h2>
-          <p className="tiny">Velg et ferdig program og tilpass det videre:</p>
+
           <label>
             Ferdig program
             <select
@@ -977,39 +959,43 @@ export function PumpDashboard({ accessToken, displayName, view = "all" }: PumpDa
             </div>
           ) : null}
 
-          <label>
-            Plan-navn
-            <input value={planName} onChange={(event) => setPlanName(event.target.value)} />
-          </label>
-          <label>
-            Økter per uke
-            <input
-              type="number"
-              min={1}
-              max={14}
-              value={weeklySessions}
-              onChange={(event) => setWeeklySessions(Number(event.target.value))}
-            />
-          </label>
-          <p className="tiny">Planlagte dager med økter: {plannedSessionCount} av 7</p>
+          <div className="message">
+            <p className="tiny strong">Plandetaljer</p>
+            <label>
+              Plan-navn
+              <input value={planName} onChange={(event) => setPlanName(event.target.value)} />
+            </label>
+            <label>
+              Økter per uke
+              <input
+                type="number"
+                min={1}
+                max={14}
+                value={weeklySessions}
+                onChange={(event) => setWeeklySessions(Number(event.target.value))}
+              />
+            </label>
+            <p className="tiny">Planlagte dager med økter: {plannedSessionCount} av 7</p>
+          </div>
 
-          <details className="message">
-            <summary className="tiny strong">
-              Velg muskelgrupper for planen ({selectedTypes.length} valgt)
-            </summary>
-            <div className="row two">
+          <div className="message">
+            <p className="tiny strong">Muskelgrupper ({selectedTypes.length} valgt)</p>
+            <div className="exercise-grid">
               {predefinedTrainingTypes.map((type) => (
-                <label key={type} className="checkbox-inline">
-                  <input type="checkbox" checked={selectedTypes.includes(type)} onChange={() => toggleTrainingType(type)} />
+                <button
+                  key={type}
+                  type="button"
+                  className={`secondary exercise-chip ${selectedTypes.includes(type) ? "selected" : ""}`}
+                  onClick={() => toggleTrainingType(type)}
+                >
                   {type}
-                </label>
+                </button>
               ))}
             </div>
-          </details>
+          </div>
 
-          <p className="tiny">Bygg ukeplan manuelt - velg dag og klikk øvelser for muskelgruppen:</p>
-          <details className="message">
-            <summary className="tiny strong">Velg dager i ukeplan</summary>
+          <div className="message">
+            <p className="tiny strong">Ukeplan</p>
             <div className="day-tabs" role="tablist" aria-label="Velg dag i ukeplan">
               {weekDays.map((day) => (
                 <button
@@ -1024,28 +1010,27 @@ export function PumpDashboard({ accessToken, displayName, view = "all" }: PumpDa
             </div>
 
             {activeDayPlan ? (
-              <div className="message">
+              <div className="training-day-card">
                 <p className="tiny strong">{activeDayPlan.day}</p>
-                <details className="message">
-                  <summary className="tiny strong">Velg treningstyper/øvelser for {activeDayPlan.day}</summary>
-                  <div className="exercise-grid">
-                    {exercisesForActiveDay.map((exercise) => {
-                      const selected = activeDayPlan.exercises.includes(exercise);
-                      return (
-                        <button
-                          key={exercise}
-                          type="button"
-                          className={`secondary exercise-chip ${selected ? "selected" : ""}`}
-                          onClick={() => toggleExercise(activeDayPlan.day, exercise)}
-                        >
-                          {exercise}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </details>
 
-                <div className="row two">
+                <p className="tiny">Velg øvelser:</p>
+                <div className="exercise-grid">
+                  {exercisesForActiveDay.map((exercise) => {
+                    const selected = activeDayPlan.exercises.includes(exercise);
+                    return (
+                      <button
+                        key={exercise}
+                        type="button"
+                        className={`secondary exercise-chip ${selected ? "selected" : ""}`}
+                        onClick={() => toggleExercise(activeDayPlan.day, exercise)}
+                      >
+                        {exercise}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="training-custom-exercise">
                   <label>
                     Legg til egen øvelse
                     <input
@@ -1061,7 +1046,7 @@ export function PumpDashboard({ accessToken, displayName, view = "all" }: PumpDa
                     />
                   </label>
                   <button type="button" className="secondary" onClick={() => addCustomExercise(activeDayPlan.day)}>
-                    Legg til øvelse
+                    Legg til
                   </button>
                 </div>
 
@@ -1080,11 +1065,11 @@ export function PumpDashboard({ accessToken, displayName, view = "all" }: PumpDa
                 </label>
               </div>
             ) : null}
-          </details>
+          </div>
 
           <div className="actions">
             <button disabled={isSavingPlan} onClick={() => void createTrainingPlan()}>
-              {isSavingPlan ? "Lagrer..." : "Lagre"}
+              {isSavingPlan ? "Lagrer..." : "Lagre Plan"}
             </button>
             <button type="button" className="reset-plan-button" onClick={resetTrainingPlan}>
               Reset
@@ -1102,26 +1087,27 @@ export function PumpDashboard({ accessToken, displayName, view = "all" }: PumpDa
           ) : null}
 
           {trainingSuggestions.length > 0 ? (
-            <>
-              <p className="tiny">Foreslåtte planer basert på kaloridata:</p>
-              <ul className="list">
+            <div className="message">
+              <p className="tiny strong">Foreslåtte planer basert på kaloridata</p>
+              <ul className="list compact">
                 {trainingSuggestions.map((suggestion) => (
                   <li key={suggestion}>{suggestion}</li>
                 ))}
               </ul>
-            </>
+            </div>
           ) : null}
 
           {trainingPlans.length > 0 ? (
             <>
-              <p className="tiny">Dine lagrede planer:</p>
+              <p className="tiny strong">Dine lagrede planer</p>
               <ul className="list plans-list">
                 {trainingPlans.map((plan) => (
                   <li key={plan.id} className="plan-item">
                     <div className="plan-item-head">
-                      <p>
-                        <strong>{plan.planName}</strong> - {plan.weeklySessions} økter/uke ({plan.trainingTypes.join(", ")})
-                      </p>
+                      <div>
+                        <h3>{plan.planName}</h3>
+                        <p className="tiny">{plan.weeklySessions} økter/uke &middot; {plan.trainingTypes.join(", ")}</p>
+                      </div>
                       <button
                         type="button"
                         className="secondary"

@@ -81,3 +81,4 @@ applyTo: "{apps/api/src/**/*.ts,README.md,.github/copilot-instructions.md}"
 - 2026-04-21: Azure Static Web Apps deploy konfigureres som web-only fra apps/web (.next output), mens apps/api deployes separat som Node.js-tjeneste; web peker til backend via NEXT_PUBLIC_API_BASE_URL.
 - 2026-04-21: API deploy-workflow støtter både publish profile og Azure login (service principal) med eksplisitt secrets-validering for å unngå utydelige credential-feil i CI.
 - 2026-04-28: Web build i Azure SWA krever eksplisitte GitHub Actions-secrets NEXT_PUBLIC_API_BASE_URL og NEXT_PUBLIC_GOOGLE_CLIENT_ID; lokalt oppsett fortsetter via apps/web/.env med localhost-verdier.
+- 2026-04-28: API CORS styres nå via CORS_ALLOWED_ORIGINS (kommaseparert allowlist) med localhost-defaults for lokalutvikling; Azure-oppsett må inkludere web-origin for preflight mot auth-endepunkter.

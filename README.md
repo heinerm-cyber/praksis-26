@@ -72,6 +72,9 @@ npm run typecheck
 	- `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (Google Web Client ID)
 - Frontend bruker `NEXT_PUBLIC_API_BASE_URL` for kall til `/api/*`-endepunkter mot separat backend.
 - API i App Service må også ha `GOOGLE_CLIENT_ID` satt i app settings for at `POST /api/auth/google` skal virke.
+- API må ha `CORS_ALLOWED_ORIGINS` satt i app settings med kommaseparerte origins som skal tillates.
+	- Eksempel produksjon + lokal: `https://nice-stone-0e1c0c203.7.azurestaticapps.net,http://localhost:3000`
+- Hvis App Service har egen CORS-konfig under Azure Portal, må samme origin også ligge der, ellers kan preflight blokkeres før Node.js-koden håndterer requesten.
 
 Dette gir to oppsett med samme kodebase:
 - Lokalt: `localhost`-URL-er via lokale env-filer.
@@ -150,6 +153,7 @@ If you move the repository between operating systems (for example Windows to Ubu
 - API tilbyr auth-endepunkter: `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/google`, `GET /api/auth/me`.
 - Google-innlogging i SPA bruker Google ID-token fra browser og verifiseres i API før eget bearer-token utstedes.
 - Sett `GOOGLE_CLIENT_ID` i `apps/api/.env` og `NEXT_PUBLIC_GOOGLE_CLIENT_ID` i `apps/web/.env` for å aktivere Google-knappen.
+- Sett `CORS_ALLOWED_ORIGINS` i `apps/api/.env` ved behov for flere enn standard localhost-opprinnelser.
 - Azure AD B2C er fortsatt målarkitektur for produksjon og kan kobles på samme bearer-kontrakt.
 
 ## Fallback behavior details

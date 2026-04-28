@@ -5,7 +5,7 @@ import { TopNavAuth } from "../features/auth/top-nav-auth";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "pump.no",
+  title: "pumpsomfaen.no",
   description: "Kalori, kosthold og treningsplaner bygget for web og fremtidig mobilbruk"
 };
 

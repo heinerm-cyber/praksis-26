@@ -186,11 +186,11 @@ export default function HomePage(): JSX.Element {
 
   return (
     <main>
-      <section className="hero home-hero" aria-label="Pump.no introduksjon">
+      <section className="hero home-hero" aria-label="Pumpsomfaen.no introduksjon">
         <h1>
-          <span className="brand-mark" aria-label="Pump.no">
+          <span className="brand-mark" aria-label="Pumpsomfaen.no">
             <span className="brand-pill">Trening og kosthold</span>
-            <span className="brand-word">pump</span>
+            <span className="brand-word">pumpsomfaen</span>
             <span className="brand-dot">.</span>
             <span className="brand-word">no</span>
           </span>

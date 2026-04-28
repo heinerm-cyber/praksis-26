@@ -65,8 +65,17 @@ npm run typecheck
 ## Azure deployment (SWA + separate API)
 - Azure Static Web Apps deployer kun frontend fra `apps/web` i denne repoen.
 - `apps/api` deployes separat som Node.js API (for eksempel Azure App Service eller Azure Container Apps).
-- Sett `NEXT_PUBLIC_API_BASE_URL` i `apps/web/.env` (og i Azure SWA application settings) til den publiserte API-URL-en.
-- Frontend bruker denne variabelen for kall til `/api/*`-endepunkter mot separat backend.
+- Lokal utvikling bruker `apps/web/.env` (eller `.env.local`) med `NEXT_PUBLIC_API_BASE_URL=http://localhost:4000`.
+- Produksjon i Azure bygger web med GitHub Actions-secrets, ikke lokal `.env`-fil.
+- Sett disse repository-secrets i GitHub for SWA-workflowen:
+	- `NEXT_PUBLIC_API_BASE_URL` (for eksempel `https://pumpnobackend2-btecbxc8eya0f9bx.westeurope-01.azurewebsites.net`)
+	- `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (Google Web Client ID)
+- Frontend bruker `NEXT_PUBLIC_API_BASE_URL` for kall til `/api/*`-endepunkter mot separat backend.
+- API i App Service må også ha `GOOGLE_CLIENT_ID` satt i app settings for at `POST /api/auth/google` skal virke.
+
+Dette gir to oppsett med samme kodebase:
+- Lokalt: `localhost`-URL-er via lokale env-filer.
+- Azure: produksjons-URL-er via workflow-secrets ved build/deploy.
 
 API deploy workflow (`.github/workflows/deploy-api-appservice.yml`) krever disse GitHub secrets:
 - `AZURE_API_WEBAPP_NAME` (påkrevd)
